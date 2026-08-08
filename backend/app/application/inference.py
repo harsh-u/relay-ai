@@ -37,6 +37,11 @@ class InferenceService:
                 action=InferenceAction.FALLBACK,
             )
 
+        await self._conversation_store.save_user_message(
+            scope=scope,
+            text=request.text,
+        )
+
         intent = await self._intent_matcher.match(request.text)
 
         if intent == Intent.GREETING:

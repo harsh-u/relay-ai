@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 
 
 class InferenceRequestBody(BaseModel):
-    tenant_id: str = Field(default="default", min_length=1)
+    tenant_id: str = Field(min_length=1)
     business_id: str = Field(min_length=1)
     conversation_id: str = Field(min_length=1)
     text: str

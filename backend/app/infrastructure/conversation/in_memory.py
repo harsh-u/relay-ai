@@ -9,6 +9,22 @@ class InMemoryConversationStore(ConversationStore):
     def __init__(self) -> None:
         self._messages: dict[str, list[ConversationMessage]] = {}
 
+    async def save_user_message(
+        self,
+        scope: ConversationScope,
+        text: str,
+    ) -> None:
+        messages = self._messages.setdefault(scope.key, [])
+
+        messages.append(
+            ConversationMessage(
+                conversation_id=scope.conversation_id,
+                role="user",
+                text=text,
+                created_at=datetime.now(UTC),
+            )
+        )
+
     async def save_assistant_response(
         self,
         scope: ConversationScope,
@@ -36,3 +52,11 @@ class InMemoryConversationStore(ConversationStore):
                 return message
 
         return None
+
+    async def get_recent_messages(
+        self,
+        scope: ConversationScope,
+        limit: int = 20,
+    ) -> list[ConversationMessage]:
+        messages = self._messages.get(scope.key, [])
+        return messages[-limit:]

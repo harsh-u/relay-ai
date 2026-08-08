@@ -23,3 +23,16 @@ class ConversationMessage:
             text=text,
             created_at=datetime.now(UTC),
         )
+
+    @classmethod
+    def user(
+        cls,
+        conversation_id: str,
+        text: str,
+    ) -> "ConversationMessage":
+        return cls(
+            conversation_id=conversation_id,
+            role="user",
+            text=text,
+            created_at=datetime.now(UTC),
+        )

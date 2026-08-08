@@ -1,14 +1,14 @@
 from fastapi.testclient import TestClient
 
-from backend.app.main import app
+TENANT_ID = "00000000-0000-0000-0000-000000000001"
+BUSINESS_ID = "00000000-0000-0000-0000-000000000002"
 
-client = TestClient(app)
 
-
-def test_greeting_is_answered_without_llm() -> None:
+def test_greeting_is_answered_without_llm(client: TestClient) -> None:
     response = client.post(
         "/v1/inference",
         json={
+            "tenant_id": TENANT_ID,
             "business_id": "business-1",
             "conversation_id": "conversation-1",
             "text": "Hello",
@@ -24,10 +24,11 @@ def test_greeting_is_answered_without_llm() -> None:
     }
 
 
-def test_repeat_request_is_recognized() -> None:
+def test_repeat_request_is_recognized(client: TestClient) -> None:
     response = client.post(
         "/v1/inference",
         json={
+            "tenant_id": TENANT_ID,
             "business_id": "business-1",
             "conversation_id": "conversation-without-context",
             "text": "Can you repeat that?",
@@ -43,10 +44,11 @@ def test_repeat_request_is_recognized() -> None:
     }
 
 
-def test_repeat_request_variation_is_recognized() -> None:
+def test_repeat_request_variation_is_recognized(client: TestClient) -> None:
     response = client.post(
         "/v1/inference",
         json={
+            "tenant_id": TENANT_ID,
             "business_id": "business-1",
             "conversation_id": "conversation-without-context-2",
             "text": "Could you say that again?",
@@ -62,10 +64,11 @@ def test_repeat_request_variation_is_recognized() -> None:
     }
 
 
-def test_unknown_request_falls_back() -> None:
+def test_unknown_request_falls_back(client: TestClient) -> None:
     response = client.post(
         "/v1/inference",
         json={
+            "tenant_id": TENANT_ID,
             "business_id": "business-1",
             "conversation_id": "conversation-1",
             "text": "What is your refund policy?",
@@ -81,10 +84,11 @@ def test_unknown_request_falls_back() -> None:
     }
 
 
-def test_empty_request_falls_back() -> None:
+def test_empty_request_falls_back(client: TestClient) -> None:
     response = client.post(
         "/v1/inference",
         json={
+            "tenant_id": TENANT_ID,
             "business_id": "business-1",
             "conversation_id": "conversation-1",
             "text": "   ",
@@ -100,10 +104,24 @@ def test_empty_request_falls_back() -> None:
     }
 
 
-def test_repeat_request_returns_last_assistant_response() -> None:
+def test_inference_requires_tenant_id(client: TestClient) -> None:
+    response = client.post(
+        "/v1/inference",
+        json={
+            "business_id": "business-1",
+            "conversation_id": "conversation-1",
+            "text": "Hello",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_repeat_request_returns_last_assistant_response(client: TestClient) -> None:
     first_response = client.post(
         "/v1/inference",
         json={
+            "tenant_id": TENANT_ID,
             "business_id": "business-1",
             "conversation_id": "conversation-repeat",
             "text": "Hello",
@@ -115,6 +133,7 @@ def test_repeat_request_returns_last_assistant_response() -> None:
     response = client.post(
         "/v1/inference",
         json={
+            "tenant_id": TENANT_ID,
             "business_id": "business-1",
             "conversation_id": "conversation-repeat",
             "text": "Can you repeat that?",
@@ -130,10 +149,11 @@ def test_repeat_request_returns_last_assistant_response() -> None:
     }
 
 
-def test_repeat_request_without_context_falls_back() -> None:
+def test_repeat_request_without_context_falls_back(client: TestClient) -> None:
     response = client.post(
         "/v1/inference",
         json={
+            "tenant_id": TENANT_ID,
             "business_id": "business-1",
             "conversation_id": "new-conversation",
             "text": "Can you repeat that?",
@@ -149,10 +169,11 @@ def test_repeat_request_without_context_falls_back() -> None:
     }
 
 
-def test_conversation_state_is_isolated() -> None:
+def test_conversation_state_is_isolated(client: TestClient) -> None:
     first_response = client.post(
         "/v1/inference",
         json={
+            "tenant_id": TENANT_ID,
             "business_id": "business-1",
             "conversation_id": "conversation-a",
             "text": "Hello",
@@ -164,6 +185,7 @@ def test_conversation_state_is_isolated() -> None:
     response = client.post(
         "/v1/inference",
         json={
+            "tenant_id": TENANT_ID,
             "business_id": "business-1",
             "conversation_id": "conversation-b",
             "text": "Can you repeat that?",
@@ -174,13 +196,72 @@ def test_conversation_state_is_isolated() -> None:
     assert response.json()["action"] == "fallback"
 
 
-def test_llm_response_can_be_used_for_repeat_request() -> None:
+def test_tenant_isolation_for_repeat_request(client: TestClient) -> None:
+    """Same business_id/conversation_id but a different tenant must not see the response."""
+    other_tenant_id = "00000000-0000-0000-0000-000000000099"
+
+    first_response = client.post(
+        "/v1/inference",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": "business-1",
+            "conversation_id": "shared-conversation-id",
+            "text": "Hello",
+        },
+    )
+
+    assert first_response.status_code == 200
+
+    response = client.post(
+        "/v1/inference",
+        json={
+            "tenant_id": other_tenant_id,
+            "business_id": "business-1",
+            "conversation_id": "shared-conversation-id",
+            "text": "Can you repeat that?",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "fallback"
+
+
+def test_business_isolation_for_repeat_request(client: TestClient) -> None:
+    """Same tenant_id/conversation_id but a different business must not see the response."""
+    first_response = client.post(
+        "/v1/inference",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": "business-1",
+            "conversation_id": "shared-conversation-id-2",
+            "text": "Hello",
+        },
+    )
+
+    assert first_response.status_code == 200
+
+    response = client.post(
+        "/v1/inference",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": "business-2",
+            "conversation_id": "shared-conversation-id-2",
+            "text": "Can you repeat that?",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "fallback"
+
+
+def test_llm_response_can_be_used_for_repeat_request(client: TestClient) -> None:
     conversation_id = "conversation-llm-context"
 
     fallback_response = client.post(
         "/v1/inference",
         json={
-            "business_id": "business-1",
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
             "conversation_id": conversation_id,
             "text": "What is your refund policy?",
         },
@@ -197,6 +278,8 @@ def test_llm_response_can_be_used_for_repeat_request() -> None:
     assistant_response = client.post(
         f"/v1/conversations/{conversation_id}/messages",
         json={
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
             "text": "Our refund policy allows refunds within 30 days.",
         },
     )
@@ -210,7 +293,8 @@ def test_llm_response_can_be_used_for_repeat_request() -> None:
     repeat_response = client.post(
         "/v1/inference",
         json={
-            "business_id": "business-1",
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
             "conversation_id": conversation_id,
             "text": "Can you repeat that?",
         },
@@ -225,13 +309,15 @@ def test_llm_response_can_be_used_for_repeat_request() -> None:
     }
 
 
-def test_llm_context_is_isolated_between_conversations() -> None:
+def test_llm_context_is_isolated_between_conversations(client: TestClient) -> None:
     first_conversation = "conversation-llm-a"
     second_conversation = "conversation-llm-b"
 
     response = client.post(
         f"/v1/conversations/{first_conversation}/messages",
         json={
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
             "text": "This is conversation A.",
         },
     )
@@ -241,7 +327,8 @@ def test_llm_context_is_isolated_between_conversations() -> None:
     repeat_response = client.post(
         "/v1/inference",
         json={
-            "business_id": "business-1",
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
             "conversation_id": second_conversation,
             "text": "Can you repeat that?",
         },
