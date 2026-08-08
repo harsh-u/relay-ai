@@ -6,6 +6,7 @@ from backend.app.domain.inference import (
     InferenceResponse,
 )
 from backend.app.domain.matching.intent import Intent
+from backend.app.domain.matching.pattern_repository import IntentPatternRepository
 from backend.app.infrastructure.matching.rule_based import RuleBasedIntentMatcher
 
 
@@ -14,10 +15,10 @@ class InferenceService:
 
     def __init__(
         self,
-        intent_matcher: RuleBasedIntentMatcher,
+        pattern_repository: IntentPatternRepository,
         conversation_store: ConversationStore,
     ) -> None:
-        self._intent_matcher = intent_matcher
+        self._pattern_repository = pattern_repository
         self._conversation_store = conversation_store
 
     async def process(
@@ -42,7 +43,12 @@ class InferenceService:
             text=request.text,
         )
 
-        intent = await self._intent_matcher.match(request.text)
+        patterns = await self._pattern_repository.get_patterns(
+            tenant_id=request.tenant_id,
+            business_id=request.business_id,
+        )
+        intent_matcher = RuleBasedIntentMatcher(patterns=patterns)
+        intent = await intent_matcher.match(request.text)
 
         if intent == Intent.GREETING:
             response_text = "Hello! How can I help you?"

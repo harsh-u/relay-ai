@@ -7,7 +7,12 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from backend.app.config.settings import get_settings
 from backend.app.db.base import Base
-from backend.app.models import Business, ConversationMessageModel, Tenant  # noqa: F401
+from backend.app.models import (  # noqa: F401
+    Business,
+    ConversationMessageModel,
+    IntentPatternModel,
+    Tenant,
+)
 
 config = context.config
 

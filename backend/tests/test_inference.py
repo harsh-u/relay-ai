@@ -1,5 +1,10 @@
 from fastapi.testclient import TestClient
 
+from backend.app.domain.matching.intent import Intent
+from backend.app.infrastructure.matching.in_memory_patterns import (
+    InMemoryIntentPatternRepository,
+)
+
 TENANT_ID = "00000000-0000-0000-0000-000000000001"
 BUSINESS_ID = "00000000-0000-0000-0000-000000000002"
 
@@ -341,3 +346,54 @@ def test_llm_context_is_isolated_between_conversations(client: TestClient) -> No
         "source": None,
         "intent": "repeat_request",
     }
+
+
+def test_business_specific_custom_pattern_is_matched(
+    client: TestClient,
+    pattern_repository: InMemoryIntentPatternRepository,
+) -> None:
+    pattern_repository.add_custom_pattern(
+        tenant_id=TENANT_ID,
+        business_id=BUSINESS_ID,
+        intent=Intent.GREETING,
+        pattern="yo",
+    )
+
+    response = client.post(
+        "/v1/inference",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
+            "conversation_id": "conversation-custom-pattern",
+            "text": "yo",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "respond"
+    assert response.json()["intent"] == "greeting"
+
+
+def test_business_specific_custom_pattern_is_isolated_to_its_business(
+    client: TestClient,
+    pattern_repository: InMemoryIntentPatternRepository,
+) -> None:
+    pattern_repository.add_custom_pattern(
+        tenant_id=TENANT_ID,
+        business_id=BUSINESS_ID,
+        intent=Intent.GREETING,
+        pattern="yo",
+    )
+
+    response = client.post(
+        "/v1/inference",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": "some-other-business",
+            "conversation_id": "conversation-custom-pattern-2",
+            "text": "yo",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "fallback"

@@ -14,10 +14,13 @@ from backend.app.application.conversation import ConversationService
 from backend.app.application.inference import InferenceService
 from backend.app.domain.conversation.store import ConversationStore
 from backend.app.domain.inference import InferenceRequest
+from backend.app.domain.matching.pattern_repository import IntentPatternRepository
 from backend.app.infrastructure.conversation.dependencies import (
     get_conversation_store,
 )
-from backend.app.infrastructure.matching.rule_based import RuleBasedIntentMatcher
+from backend.app.infrastructure.matching.dependencies import (
+    get_intent_pattern_repository,
+)
 
 router = APIRouter(
     prefix="/v1",
@@ -32,11 +35,15 @@ async def inference(
         ConversationStore,
         Depends(get_conversation_store),
     ],
+    pattern_repository: Annotated[
+        IntentPatternRepository,
+        Depends(get_intent_pattern_repository),
+    ],
 ) -> InferenceResponseBody:
     """Process an STT request through the RelayAI inference layer."""
 
     inference_service = InferenceService(
-        intent_matcher=RuleBasedIntentMatcher(),
+        pattern_repository=pattern_repository,
         conversation_store=conversation_store,
     )
 
