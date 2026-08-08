@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://relayai:relayai@localhost:5432/relayai"
     redis_url: str = "redis://localhost:6379/0"
 
+    embedding_model_dir: str = "models/indic-sentence-bert-nli-int8"
+    embedding_similarity_threshold: float = 0.75
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

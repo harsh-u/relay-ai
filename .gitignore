@@ -38,3 +38,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Downloaded/exported ML model artifacts (see scripts/export_embedding_model.py)
+/models/
