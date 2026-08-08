@@ -9,6 +9,7 @@ authors = [
     { name = "RelayAI Team" }
 ]
 dependencies = [
+    "alembic>=1.16.0,<2.0.0",
     "fastapi>=0.116.0,<1.0.0",
     "uvicorn[standard]>=0.35.0,<1.0.0",
     "pydantic>=2.11.0,<3.0.0",
