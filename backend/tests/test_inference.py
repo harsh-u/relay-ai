@@ -172,3 +172,85 @@ def test_conversation_state_is_isolated() -> None:
 
     assert response.status_code == 200
     assert response.json()["action"] == "fallback"
+
+
+def test_llm_response_can_be_used_for_repeat_request() -> None:
+    conversation_id = "conversation-llm-context"
+
+    fallback_response = client.post(
+        "/v1/inference",
+        json={
+            "business_id": "business-1",
+            "conversation_id": conversation_id,
+            "text": "What is your refund policy?",
+        },
+    )
+
+    assert fallback_response.status_code == 200
+    assert fallback_response.json() == {
+        "action": "fallback",
+        "text": None,
+        "source": None,
+        "intent": None,
+    }
+
+    assistant_response = client.post(
+        f"/v1/conversations/{conversation_id}/messages",
+        json={
+            "text": "Our refund policy allows refunds within 30 days.",
+        },
+    )
+
+    assert assistant_response.status_code == 200
+    assert assistant_response.json() == {
+        "conversation_id": conversation_id,
+        "stored": True,
+    }
+
+    repeat_response = client.post(
+        "/v1/inference",
+        json={
+            "business_id": "business-1",
+            "conversation_id": conversation_id,
+            "text": "Can you repeat that?",
+        },
+    )
+
+    assert repeat_response.status_code == 200
+    assert repeat_response.json() == {
+        "action": "respond",
+        "text": "Our refund policy allows refunds within 30 days.",
+        "source": "conversation:last_response",
+        "intent": "repeat_request",
+    }
+
+
+def test_llm_context_is_isolated_between_conversations() -> None:
+    first_conversation = "conversation-llm-a"
+    second_conversation = "conversation-llm-b"
+
+    response = client.post(
+        f"/v1/conversations/{first_conversation}/messages",
+        json={
+            "text": "This is conversation A.",
+        },
+    )
+
+    assert response.status_code == 200
+
+    repeat_response = client.post(
+        "/v1/inference",
+        json={
+            "business_id": "business-1",
+            "conversation_id": second_conversation,
+            "text": "Can you repeat that?",
+        },
+    )
+
+    assert repeat_response.status_code == 200
+    assert repeat_response.json() == {
+        "action": "fallback",
+        "text": None,
+        "source": None,
+        "intent": "repeat_request",
+    }

@@ -11,3 +11,10 @@ class ConversationStore(Protocol):
 
     async def save(self, state: ConversationState) -> None:
         """Persist conversation state."""
+
+    async def save_assistant_response(
+        self,
+        conversation_id: str,
+        text: str,
+    ) -> None:
+        """Store the latest assistant response."""
