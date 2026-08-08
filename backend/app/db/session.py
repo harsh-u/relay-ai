@@ -23,6 +23,15 @@ AsyncSessionFactory = async_sessionmaker(
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
-    """Provide an async database session for a request."""
+    """Provide an async database session for a request.
+
+    Commits on a successful request, rolls back on an exception - without
+    this, writes are silently discarded when the session closes.
+    """
     async with AsyncSessionFactory() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
