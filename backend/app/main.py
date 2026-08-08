@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from backend.app.api.health import router as health_router
+from backend.app.api.inference import router as inference_router
 from backend.app.config.settings import get_settings
 
 
@@ -15,6 +16,7 @@ def create_application() -> FastAPI:
     )
 
     application.include_router(health_router)
+    application.include_router(inference_router)
 
     return application
 
