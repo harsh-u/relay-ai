@@ -1,21 +1,15 @@
 from pydantic import BaseModel, Field
 
-from backend.app.domain.inference import InferenceAction
-from backend.app.domain.matching.intent import Intent
-
 
 class InferenceRequestBody(BaseModel):
-    """HTTP request received from a voice platform."""
-
+    tenant_id: str = Field(default="default", min_length=1)
     business_id: str = Field(min_length=1)
     conversation_id: str = Field(min_length=1)
     text: str
 
 
 class InferenceResponseBody(BaseModel):
-    """HTTP response returned to a voice platform."""
-
-    action: InferenceAction
+    action: str
     text: str | None = None
     source: str | None = None
-    intent: Intent | None = None
+    intent: str | None = None

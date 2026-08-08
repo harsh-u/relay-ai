@@ -1,20 +1,21 @@
-from typing import Protocol
+from abc import ABC, abstractmethod
 
-from backend.app.domain.conversation.state import ConversationState
+from backend.app.domain.conversation.message import ConversationMessage
+from backend.app.domain.conversation.scope import ConversationScope
 
 
-class ConversationStore(Protocol):
-    """Interface for storing short-lived conversation state."""
-
-    async def get(self, conversation_id: str) -> ConversationState | None:
-        """Return conversation state if it exists."""
-
-    async def save(self, state: ConversationState) -> None:
-        """Persist conversation state."""
-
+class ConversationStore(ABC):
+    @abstractmethod
     async def save_assistant_response(
         self,
-        conversation_id: str,
+        scope: ConversationScope,
         text: str,
     ) -> None:
-        """Store the latest assistant response."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_last_assistant_response(
+        self,
+        scope: ConversationScope,
+    ) -> ConversationMessage | None:
+        raise NotImplementedError

@@ -1,4 +1,4 @@
-from backend.app.domain.conversation.state import ConversationState
+from backend.app.domain.conversation.scope import ConversationScope
 from backend.app.domain.conversation.store import ConversationStore
 from backend.app.domain.inference import (
     InferenceAction,
@@ -26,14 +26,11 @@ class InferenceService:
     ) -> InferenceResponse:
         """Process an inference request."""
 
-        state = await self._conversation_store.get(
-            request.conversation_id,
+        scope = ConversationScope(
+            tenant_id=request.tenant_id,
+            business_id=request.business_id,
+            conversation_id=request.conversation_id,
         )
-
-        if state is None:
-            state = ConversationState(
-                conversation_id=request.conversation_id,
-            )
 
         if not request.text.strip():
             return InferenceResponse(
@@ -45,10 +42,9 @@ class InferenceService:
         if intent == Intent.GREETING:
             response_text = "Hello! How can I help you?"
 
-            await self._save_state(
-                state=state,
-                user_message=request.text,
-                assistant_response=response_text,
+            await self._conversation_store.save_assistant_response(
+                scope=scope,
+                text=response_text,
             )
 
             return InferenceResponse(
@@ -59,18 +55,14 @@ class InferenceService:
             )
 
         if intent == Intent.REPEAT_REQUEST:
-            if state.last_assistant_response:
-                response_text = state.last_assistant_response
+            last_response = await self._conversation_store.get_last_assistant_response(
+                scope=scope,
+            )
 
-                await self._save_state(
-                    state=state,
-                    user_message=request.text,
-                    assistant_response=response_text,
-                )
-
+            if last_response is not None:
                 return InferenceResponse(
                     action=InferenceAction.RESPOND,
-                    text=response_text,
+                    text=last_response.text,
                     source="conversation:last_response",
                     intent=intent,
                 )
@@ -80,27 +72,6 @@ class InferenceService:
                 intent=intent,
             )
 
-        await self._save_state(
-            state=state,
-            user_message=request.text,
-            assistant_response=None,
-        )
-
         return InferenceResponse(
             action=InferenceAction.FALLBACK,
         )
-
-    async def _save_state(
-        self,
-        state: ConversationState,
-        user_message: str,
-        assistant_response: str | None,
-    ) -> None:
-        """Update and persist the minimal conversation state."""
-
-        state.last_user_message = user_message
-
-        if assistant_response is not None:
-            state.last_assistant_response = assistant_response
-
-        await self._conversation_store.save(state)

@@ -13,8 +13,7 @@ class InferenceAction(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class InferenceRequest:
-    """Normalized request received from a voice platform."""
-
+    tenant_id: str
     business_id: str
     conversation_id: str
     text: str

@@ -1,30 +1,38 @@
-from backend.app.domain.conversation.state import ConversationState
+from datetime import UTC, datetime
+
+from backend.app.domain.conversation.message import ConversationMessage
+from backend.app.domain.conversation.scope import ConversationScope
+from backend.app.domain.conversation.store import ConversationStore
 
 
-class InMemoryConversationStore:
-    """In-memory conversation store for local development and tests."""
-
+class InMemoryConversationStore(ConversationStore):
     def __init__(self) -> None:
-        self._conversations: dict[str, ConversationState] = {}
-
-    async def get(self, conversation_id: str) -> ConversationState | None:
-        return self._conversations.get(conversation_id)
-
-    async def save(self, state: ConversationState) -> None:
-        self._conversations[state.conversation_id] = state
+        self._messages: dict[str, list[ConversationMessage]] = {}
 
     async def save_assistant_response(
         self,
-        conversation_id: str,
+        scope: ConversationScope,
         text: str,
     ) -> None:
-        state = self._conversations.get(conversation_id)
+        messages = self._messages.setdefault(scope.key, [])
 
-        if state is None:
-            state = ConversationState(
-                conversation_id=conversation_id,
+        messages.append(
+            ConversationMessage(
+                conversation_id=scope.conversation_id,
+                role="assistant",
+                text=text,
+                created_at=datetime.now(UTC),
             )
+        )
 
-        state.last_assistant_response = text
+    async def get_last_assistant_response(
+        self,
+        scope: ConversationScope,
+    ) -> ConversationMessage | None:
+        messages = self._messages.get(scope.key, [])
 
-        self._conversations[conversation_id] = state
+        for message in reversed(messages):
+            if message.role == "assistant":
+                return message
+
+        return None
