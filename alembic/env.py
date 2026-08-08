@@ -8,6 +8,7 @@ from alembic import context
 from backend.app.config.settings import get_settings
 from backend.app.db.base import Base
 from backend.app.models import (  # noqa: F401
+    AnsweredQuestionModel,
     Business,
     ConversationMessageModel,
     IntentPatternModel,

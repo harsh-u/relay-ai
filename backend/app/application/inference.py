@@ -1,13 +1,12 @@
-from backend.app.domain.conversation.qa_pairs import extract_answered_questions
 from backend.app.domain.conversation.scope import ConversationScope
 from backend.app.domain.conversation.store import ConversationStore
 from backend.app.domain.embedding.provider import EmbeddingProvider
-from backend.app.domain.embedding.similarity import cosine_similarity
 from backend.app.domain.inference import (
     InferenceAction,
     InferenceRequest,
     InferenceResponse,
 )
+from backend.app.domain.knowledge.repository import AnsweredQuestionRepository
 from backend.app.domain.matching.intent import Intent
 from backend.app.domain.matching.pattern_repository import IntentPatternRepository
 from backend.app.infrastructure.matching.rule_based import RuleBasedIntentMatcher
@@ -21,11 +20,13 @@ class InferenceService:
         pattern_repository: IntentPatternRepository,
         conversation_store: ConversationStore,
         embedding_provider: EmbeddingProvider,
+        answered_question_repository: AnsweredQuestionRepository,
         semantic_match_threshold: float,
     ) -> None:
         self._pattern_repository = pattern_repository
         self._conversation_store = conversation_store
         self._embedding_provider = embedding_provider
+        self._answered_question_repository = answered_question_repository
         self._semantic_match_threshold = semantic_match_threshold
 
     async def process(
@@ -90,44 +91,29 @@ class InferenceService:
                 intent=intent,
             )
 
-        return await self._match_answered_question(scope, request.text)
+        return await self._match_answered_question(request)
 
-    async def _match_answered_question(
-        self,
-        scope: ConversationScope,
-        text: str,
-    ) -> InferenceResponse:
+    async def _match_answered_question(self, request: InferenceRequest) -> InferenceResponse:
         """Reuse an earlier answer if this question means the same as one
-        already asked and answered in this conversation, even if worded
-        differently."""
+        this business has already had answered before - by anyone, in any
+        conversation - even if worded differently."""
 
-        history = await self._conversation_store.get_recent_messages(scope=scope)
-        qa_pairs = extract_answered_questions(history)
+        query_vector = (await self._embedding_provider.embed([request.text]))[0]
 
-        if not qa_pairs:
-            return InferenceResponse(action=InferenceAction.FALLBACK)
+        match = await self._answered_question_repository.find_most_similar(
+            tenant_id=request.tenant_id,
+            business_id=request.business_id,
+            embedding=query_vector,
+        )
 
-        past_questions = [question for question, _ in qa_pairs]
-        vectors = await self._embedding_provider.embed([text, *past_questions])
-        query_vector, past_vectors = vectors[0], vectors[1:]
+        if match is not None:
+            answered_question, similarity = match
 
-        best_index: int | None = None
-        best_similarity = 0.0
-
-        for index, past_vector in enumerate(past_vectors):
-            similarity = cosine_similarity(query_vector, past_vector)
-
-            if similarity > best_similarity:
-                best_similarity = similarity
-                best_index = index
-
-        if best_index is not None and best_similarity >= self._semantic_match_threshold:
-            _, answer = qa_pairs[best_index]
-
-            return InferenceResponse(
-                action=InferenceAction.RESPOND,
-                text=answer,
-                source="conversation:semantic_match",
-            )
+            if similarity >= self._semantic_match_threshold:
+                return InferenceResponse(
+                    action=InferenceAction.RESPOND,
+                    text=answered_question.answer,
+                    source="knowledge:semantic_match",
+                )
 
         return InferenceResponse(action=InferenceAction.FALLBACK)

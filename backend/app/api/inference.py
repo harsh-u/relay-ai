@@ -16,11 +16,15 @@ from backend.app.config.settings import get_settings
 from backend.app.domain.conversation.store import ConversationStore
 from backend.app.domain.embedding.provider import EmbeddingProvider
 from backend.app.domain.inference import InferenceRequest
+from backend.app.domain.knowledge.repository import AnsweredQuestionRepository
 from backend.app.domain.matching.pattern_repository import IntentPatternRepository
 from backend.app.infrastructure.conversation.dependencies import (
     get_conversation_store,
 )
 from backend.app.infrastructure.embedding.dependencies import get_embedding_provider
+from backend.app.infrastructure.knowledge.dependencies import (
+    get_answered_question_repository,
+)
 from backend.app.infrastructure.matching.dependencies import (
     get_intent_pattern_repository,
 )
@@ -46,6 +50,10 @@ async def inference(
         EmbeddingProvider,
         Depends(get_embedding_provider),
     ],
+    answered_question_repository: Annotated[
+        AnsweredQuestionRepository,
+        Depends(get_answered_question_repository),
+    ],
 ) -> InferenceResponseBody:
     """Process an STT request through the RelayAI inference layer."""
 
@@ -53,6 +61,7 @@ async def inference(
         pattern_repository=pattern_repository,
         conversation_store=conversation_store,
         embedding_provider=embedding_provider,
+        answered_question_repository=answered_question_repository,
         semantic_match_threshold=get_settings().embedding_similarity_threshold,
     )
 
@@ -84,11 +93,21 @@ async def record_assistant_message(
         ConversationStore,
         Depends(get_conversation_store),
     ],
+    embedding_provider: Annotated[
+        EmbeddingProvider,
+        Depends(get_embedding_provider),
+    ],
+    answered_question_repository: Annotated[
+        AnsweredQuestionRepository,
+        Depends(get_answered_question_repository),
+    ],
 ) -> AssistantMessageResponse:
     """Store an assistant response in conversation history."""
 
     conversation_service = ConversationService(
         conversation_store=conversation_store,
+        embedding_provider=embedding_provider,
+        answered_question_repository=answered_question_repository,
     )
 
     await conversation_service.record_assistant_response(

@@ -400,11 +400,36 @@ def test_business_specific_custom_pattern_is_isolated_to_its_business(
     assert response.json()["action"] == "fallback"
 
 
+def _ask_and_report_answer(
+    client: TestClient,
+    conversation_id: str,
+    question: str,
+    answer: str,
+    tenant_id: str = TENANT_ID,
+    business_id: str = BUSINESS_ID,
+) -> None:
+    """Ask a question that falls back, then report the LLM's answer back -
+    the sequence that populates the answered-question cache for a business."""
+
+    client.post(
+        "/v1/inference",
+        json={
+            "tenant_id": tenant_id,
+            "business_id": business_id,
+            "conversation_id": conversation_id,
+            "text": question,
+        },
+    )
+    client.post(
+        f"/v1/conversations/{conversation_id}/messages",
+        json={"tenant_id": tenant_id, "business_id": business_id, "text": answer},
+    )
+
+
 def test_semantic_match_reuses_answer_for_rephrased_question(
     client: TestClient,
     embedding_provider: FakeEmbeddingProvider,
 ) -> None:
-    conversation_id = "conversation-semantic-1"
     original_question = "Do you accept Delta Dental insurance?"
     rephrased_question = "Is Delta Dental accepted here?"
     answer = "Yes, we're in-network with Delta Dental PPO."
@@ -412,35 +437,14 @@ def test_semantic_match_reuses_answer_for_rephrased_question(
     embedding_provider.set_vector(original_question, [1.0, 0.0, 0.0])
     embedding_provider.set_vector(rephrased_question, [1.0, 0.0, 0.0])
 
-    fallback_response = client.post(
-        "/v1/inference",
-        json={
-            "tenant_id": TENANT_ID,
-            "business_id": BUSINESS_ID,
-            "conversation_id": conversation_id,
-            "text": original_question,
-        },
-    )
-
-    assert fallback_response.json()["action"] == "fallback"
-
-    stored_response = client.post(
-        f"/v1/conversations/{conversation_id}/messages",
-        json={
-            "tenant_id": TENANT_ID,
-            "business_id": BUSINESS_ID,
-            "text": answer,
-        },
-    )
-
-    assert stored_response.status_code == 200
+    _ask_and_report_answer(client, "conversation-semantic-1", original_question, answer)
 
     response = client.post(
         "/v1/inference",
         json={
             "tenant_id": TENANT_ID,
             "business_id": BUSINESS_ID,
-            "conversation_id": conversation_id,
+            "conversation_id": "conversation-semantic-1",
             "text": rephrased_question,
         },
     )
@@ -449,7 +453,7 @@ def test_semantic_match_reuses_answer_for_rephrased_question(
     assert response.json() == {
         "action": "respond",
         "text": answer,
-        "source": "conversation:semantic_match",
+        "source": "knowledge:semantic_match",
         "intent": None,
     }
 
@@ -458,29 +462,17 @@ def test_semantic_match_does_not_fire_for_dissimilar_question(
     client: TestClient,
     embedding_provider: FakeEmbeddingProvider,
 ) -> None:
-    conversation_id = "conversation-semantic-2"
     original_question = "Do you accept Delta Dental insurance?"
     unrelated_question = "What time do you close on Saturdays?"
 
     embedding_provider.set_vector(original_question, [1.0, 0.0, 0.0])
     embedding_provider.set_vector(unrelated_question, [0.0, 1.0, 0.0])
 
-    client.post(
-        "/v1/inference",
-        json={
-            "tenant_id": TENANT_ID,
-            "business_id": BUSINESS_ID,
-            "conversation_id": conversation_id,
-            "text": original_question,
-        },
-    )
-    client.post(
-        f"/v1/conversations/{conversation_id}/messages",
-        json={
-            "tenant_id": TENANT_ID,
-            "business_id": BUSINESS_ID,
-            "text": "Yes, we're in-network with Delta Dental PPO.",
-        },
+    _ask_and_report_answer(
+        client,
+        "conversation-semantic-2",
+        original_question,
+        "Yes, we're in-network with Delta Dental PPO.",
     )
 
     response = client.post(
@@ -488,7 +480,7 @@ def test_semantic_match_does_not_fire_for_dissimilar_question(
         json={
             "tenant_id": TENANT_ID,
             "business_id": BUSINESS_ID,
-            "conversation_id": conversation_id,
+            "conversation_id": "conversation-semantic-2",
             "text": unrelated_question,
         },
     )
@@ -497,7 +489,43 @@ def test_semantic_match_does_not_fire_for_dissimilar_question(
     assert response.json()["action"] == "fallback"
 
 
-def test_semantic_match_is_isolated_to_its_conversation(
+def test_semantic_match_reuses_answer_across_different_conversations(
+    client: TestClient,
+    embedding_provider: FakeEmbeddingProvider,
+) -> None:
+    """The whole point: a *different* caller, in a *different* conversation,
+    asking a reworded version of a question this business already answered,
+    should not need another LLM call either."""
+
+    original_question = "Do you accept Delta Dental insurance?"
+    rephrased_question = "Is Delta Dental accepted here?"
+    answer = "Yes, we're in-network with Delta Dental PPO."
+
+    embedding_provider.set_vector(original_question, [1.0, 0.0, 0.0])
+    embedding_provider.set_vector(rephrased_question, [1.0, 0.0, 0.0])
+
+    _ask_and_report_answer(client, "conversation-semantic-a", original_question, answer)
+
+    response = client.post(
+        "/v1/inference",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
+            "conversation_id": "conversation-semantic-b",
+            "text": rephrased_question,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "action": "respond",
+        "text": answer,
+        "source": "knowledge:semantic_match",
+        "intent": None,
+    }
+
+
+def test_semantic_match_is_isolated_to_its_business(
     client: TestClient,
     embedding_provider: FakeEmbeddingProvider,
 ) -> None:
@@ -507,30 +535,51 @@ def test_semantic_match_is_isolated_to_its_conversation(
     embedding_provider.set_vector(original_question, [1.0, 0.0, 0.0])
     embedding_provider.set_vector(rephrased_question, [1.0, 0.0, 0.0])
 
-    client.post(
-        "/v1/inference",
-        json={
-            "tenant_id": TENANT_ID,
-            "business_id": BUSINESS_ID,
-            "conversation_id": "conversation-semantic-a",
-            "text": original_question,
-        },
-    )
-    client.post(
-        "/v1/conversations/conversation-semantic-a/messages",
-        json={
-            "tenant_id": TENANT_ID,
-            "business_id": BUSINESS_ID,
-            "text": "Yes, we're in-network with Delta Dental PPO.",
-        },
+    _ask_and_report_answer(
+        client,
+        "conversation-semantic-business-a",
+        original_question,
+        "Yes, we're in-network with Delta Dental PPO.",
     )
 
     response = client.post(
         "/v1/inference",
         json={
             "tenant_id": TENANT_ID,
+            "business_id": "some-other-business",
+            "conversation_id": "conversation-semantic-business-b",
+            "text": rephrased_question,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "fallback"
+
+
+def test_semantic_match_is_isolated_to_its_tenant(
+    client: TestClient,
+    embedding_provider: FakeEmbeddingProvider,
+) -> None:
+    original_question = "Do you accept Delta Dental insurance?"
+    rephrased_question = "Is Delta Dental accepted here?"
+    other_tenant_id = "00000000-0000-0000-0000-000000000099"
+
+    embedding_provider.set_vector(original_question, [1.0, 0.0, 0.0])
+    embedding_provider.set_vector(rephrased_question, [1.0, 0.0, 0.0])
+
+    _ask_and_report_answer(
+        client,
+        "conversation-semantic-tenant-a",
+        original_question,
+        "Yes, we're in-network with Delta Dental PPO.",
+    )
+
+    response = client.post(
+        "/v1/inference",
+        json={
+            "tenant_id": other_tenant_id,
             "business_id": BUSINESS_ID,
-            "conversation_id": "conversation-semantic-b",
+            "conversation_id": "conversation-semantic-tenant-b",
             "text": rephrased_question,
         },
     )
