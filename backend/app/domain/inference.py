@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from enum import StrEnum
 
+from backend.app.domain.matching.intent import Intent
+
 
 class InferenceAction(StrEnum):
     """Action RelayAI wants the upstream voice platform to take."""
@@ -25,3 +27,4 @@ class InferenceResponse:
     action: InferenceAction
     text: str | None = None
     source: str | None = None
+    intent: Intent | None = None

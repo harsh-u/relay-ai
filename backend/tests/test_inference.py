@@ -20,6 +20,45 @@ def test_greeting_is_answered_without_llm() -> None:
         "action": "respond",
         "text": "Hello! How can I help you?",
         "source": "builtin:greeting",
+        "intent": "greeting",
+    }
+
+
+def test_repeat_request_is_recognized() -> None:
+    response = client.post(
+        "/v1/inference",
+        json={
+            "business_id": "business-1",
+            "conversation_id": "conversation-1",
+            "text": "Can you repeat that?",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "action": "fallback",
+        "text": None,
+        "source": None,
+        "intent": "repeat_request",
+    }
+
+
+def test_repeat_request_variation_is_recognized() -> None:
+    response = client.post(
+        "/v1/inference",
+        json={
+            "business_id": "business-1",
+            "conversation_id": "conversation-1",
+            "text": "Could you say that again?",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "action": "fallback",
+        "text": None,
+        "source": None,
+        "intent": "repeat_request",
     }
 
 
@@ -38,6 +77,7 @@ def test_unknown_request_falls_back() -> None:
         "action": "fallback",
         "text": None,
         "source": None,
+        "intent": None,
     }
 
 
@@ -56,4 +96,5 @@ def test_empty_request_falls_back() -> None:
         "action": "fallback",
         "text": None,
         "source": None,
+        "intent": None,
     }

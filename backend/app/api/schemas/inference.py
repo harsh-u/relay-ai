@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 
 from backend.app.domain.inference import InferenceAction
+from backend.app.domain.matching.intent import Intent
 
 
 class InferenceRequestBody(BaseModel):
@@ -17,3 +18,4 @@ class InferenceResponseBody(BaseModel):
     action: InferenceAction
     text: str | None = None
     source: str | None = None
+    intent: Intent | None = None

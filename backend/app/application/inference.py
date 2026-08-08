@@ -3,10 +3,15 @@ from backend.app.domain.inference import (
     InferenceRequest,
     InferenceResponse,
 )
+from backend.app.domain.matching.intent import Intent
+from backend.app.infrastructure.matching.rule_based import RuleBasedIntentMatcher
 
 
 class InferenceService:
     """Core RelayAI inference decision service."""
+
+    def __init__(self, intent_matcher: RuleBasedIntentMatcher) -> None:
+        self._intent_matcher = intent_matcher
 
     async def process(
         self,
@@ -14,29 +19,25 @@ class InferenceService:
     ) -> InferenceResponse:
         """Process an inference request."""
 
-        text = request.text.strip()
-
-        if not text:
+        if not request.text.strip():
             return InferenceResponse(
                 action=InferenceAction.FALLBACK,
             )
 
-        normalized_text = text.lower()
+        intent = await self._intent_matcher.match(request.text)
 
-        greetings = {
-            "hi",
-            "hello",
-            "hey",
-            "hi there",
-            "hello there",
-            "hey there",
-        }
-
-        if normalized_text in greetings:
+        if intent == Intent.GREETING:
             return InferenceResponse(
                 action=InferenceAction.RESPOND,
                 text="Hello! How can I help you?",
                 source="builtin:greeting",
+                intent=intent,
+            )
+
+        if intent == Intent.REPEAT_REQUEST:
+            return InferenceResponse(
+                action=InferenceAction.FALLBACK,
+                intent=intent,
             )
 
         return InferenceResponse(

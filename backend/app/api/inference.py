@@ -6,13 +6,16 @@ from backend.app.api.schemas.inference import (
 )
 from backend.app.application.inference import InferenceService
 from backend.app.domain.inference import InferenceRequest
+from backend.app.infrastructure.matching.rule_based import RuleBasedIntentMatcher
 
 router = APIRouter(
     prefix="/v1",
     tags=["inference"],
 )
 
-inference_service = InferenceService()
+inference_service = InferenceService(
+    intent_matcher=RuleBasedIntentMatcher(),
+)
 
 
 @router.post("/inference", response_model=InferenceResponseBody)
@@ -33,4 +36,5 @@ async def inference(
         action=result.action,
         text=result.text,
         source=result.source,
+        intent=result.intent,
     )
