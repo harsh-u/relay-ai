@@ -6,6 +6,9 @@ from backend.app.api.schemas.inference import (
 )
 from backend.app.application.inference import InferenceService
 from backend.app.domain.inference import InferenceRequest
+from backend.app.infrastructure.conversation.in_memory import (
+    InMemoryConversationStore,
+)
 from backend.app.infrastructure.matching.rule_based import RuleBasedIntentMatcher
 
 router = APIRouter(
@@ -15,6 +18,7 @@ router = APIRouter(
 
 inference_service = InferenceService(
     intent_matcher=RuleBasedIntentMatcher(),
+    conversation_store=InMemoryConversationStore(),
 )
 
 
