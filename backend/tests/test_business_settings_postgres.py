@@ -61,3 +61,50 @@ async def test_unknown_business_falls_back_to_shared_default(db_session: AsyncSe
 
     assert settings.knowledge_scope == KnowledgeScope.SHARED
     assert settings.knowledge_ttl_days == 30
+
+
+async def test_update_knowledge_settings_changes_both_fields(db_session: AsyncSession) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresBusinessSettingsRepository(db_session, default_ttl_days=30)
+
+    updated = await repository.update_knowledge_settings(
+        tenant_id, business_id, knowledge_scope=KnowledgeScope.ISOLATED, knowledge_ttl_days=14
+    )
+
+    assert updated is not None
+    assert updated.knowledge_scope == KnowledgeScope.ISOLATED
+    assert updated.knowledge_ttl_days == 14
+
+    persisted = await repository.get_knowledge_settings(tenant_id, business_id)
+    assert persisted.knowledge_scope == KnowledgeScope.ISOLATED
+    assert persisted.knowledge_ttl_days == 14
+
+
+async def test_update_knowledge_settings_partial_update_leaves_other_field(
+    db_session: AsyncSession,
+) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(
+        db_session, knowledge_scope="isolated", knowledge_ttl_days=14
+    )
+    repository = PostgresBusinessSettingsRepository(db_session, default_ttl_days=30)
+
+    updated = await repository.update_knowledge_settings(
+        tenant_id, business_id, knowledge_scope=None, knowledge_ttl_days=7
+    )
+
+    assert updated is not None
+    assert updated.knowledge_scope == KnowledgeScope.ISOLATED
+    assert updated.knowledge_ttl_days == 7
+
+
+async def test_update_knowledge_settings_returns_none_for_unknown_business(
+    db_session: AsyncSession,
+) -> None:
+    tenant_id, _ = await _create_tenant_and_business(db_session)
+    repository = PostgresBusinessSettingsRepository(db_session, default_ttl_days=30)
+
+    updated = await repository.update_knowledge_settings(
+        tenant_id, str(uuid4()), knowledge_scope=KnowledgeScope.ISOLATED, knowledge_ttl_days=14
+    )
+
+    assert updated is None

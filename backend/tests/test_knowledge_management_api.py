@@ -1,0 +1,142 @@
+from fastapi.testclient import TestClient
+
+from backend.app.infrastructure.embedding.fake import FakeEmbeddingProvider
+
+TENANT_ID = "00000000-0000-0000-0000-000000000001"
+BUSINESS_ID = "00000000-0000-0000-0000-000000000002"
+
+
+def test_update_knowledge_settings_changes_scope_and_ttl(client: TestClient) -> None:
+    response = client.patch(
+        "/v1/knowledge/settings",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
+            "knowledge_scope": "isolated",
+            "knowledge_ttl_days": 14,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"knowledge_scope": "isolated", "knowledge_ttl_days": 14}
+
+
+def test_update_knowledge_settings_partial_update_leaves_other_field_alone(
+    client: TestClient,
+) -> None:
+    client.patch(
+        "/v1/knowledge/settings",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
+            "knowledge_scope": "isolated",
+            "knowledge_ttl_days": 14,
+        },
+    )
+
+    response = client.patch(
+        "/v1/knowledge/settings",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
+            "knowledge_ttl_days": 7,
+        },
+    )
+
+    assert response.json() == {"knowledge_scope": "isolated", "knowledge_ttl_days": 7}
+
+
+def test_update_knowledge_settings_actually_affects_matching(
+    client: TestClient,
+    embedding_provider: FakeEmbeddingProvider,
+) -> None:
+    original_question = "Do you accept Delta Dental insurance?"
+    rephrased_question = "Is Delta Dental accepted here?"
+
+    embedding_provider.set_vector(original_question, [1.0, 0.0, 0.0])
+    embedding_provider.set_vector(rephrased_question, [1.0, 0.0, 0.0])
+
+    client.patch(
+        "/v1/knowledge/settings",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
+            "knowledge_scope": "isolated",
+        },
+    )
+
+    client.post(
+        "/v1/inference",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
+            "conversation_id": "conv-a",
+            "agent_id": "agent-alpha",
+            "text": original_question,
+        },
+    )
+    client.post(
+        "/v1/conversations/conv-a/messages",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
+            "agent_id": "agent-alpha",
+            "text": "Yes.",
+        },
+    )
+
+    response = client.post(
+        "/v1/inference",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
+            "conversation_id": "conv-b",
+            "agent_id": "agent-beta",
+            "text": rephrased_question,
+        },
+    )
+
+    assert response.json()["action"] == "fallback"
+
+
+def test_add_answered_question_seeds_cache_instantly(
+    client: TestClient,
+    embedding_provider: FakeEmbeddingProvider,
+) -> None:
+    question = "Do you accept Delta Dental insurance?"
+    rephrased_question = "Is Delta Dental accepted here?"
+    answer = "Yes, we're in-network with Delta Dental PPO."
+
+    embedding_provider.set_vector(question, [1.0, 0.0, 0.0])
+    embedding_provider.set_vector(rephrased_question, [1.0, 0.0, 0.0])
+
+    seed_response = client.post(
+        "/v1/knowledge/answers",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
+            "question": question,
+            "answer": answer,
+        },
+    )
+
+    assert seed_response.status_code == 200
+    assert seed_response.json() == {"stored": True}
+
+    response = client.post(
+        "/v1/inference",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
+            "conversation_id": "conv-seeded",
+            "text": rephrased_question,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "action": "respond",
+        "text": answer,
+        "source": "knowledge:semantic_match",
+        "intent": None,
+    }

@@ -1,9 +1,20 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-from backend.app.api.schemas.knowledge import ClearKnowledgeCacheResponse
+from backend.app.api.schemas.knowledge import (
+    AddAnsweredQuestionRequest,
+    AddAnsweredQuestionResponse,
+    ClearKnowledgeCacheResponse,
+    UpdateKnowledgeSettingsRequest,
+    UpdateKnowledgeSettingsResponse,
+)
+from backend.app.application.knowledge import KnowledgeService
+from backend.app.domain.business.repository import BusinessSettingsRepository
+from backend.app.domain.embedding.provider import EmbeddingProvider
 from backend.app.domain.knowledge.repository import AnsweredQuestionRepository
+from backend.app.infrastructure.business.dependencies import get_business_settings_repository
+from backend.app.infrastructure.embedding.dependencies import get_embedding_provider
 from backend.app.infrastructure.knowledge.dependencies import get_answered_question_repository
 
 router = APIRouter(
@@ -49,3 +60,65 @@ async def clear_knowledge_cache(
     )
 
     return ClearKnowledgeCacheResponse(deleted=deleted)
+
+
+@router.patch("/knowledge/settings", response_model=UpdateKnowledgeSettingsResponse)
+async def update_knowledge_settings(
+    request: UpdateKnowledgeSettingsRequest,
+    business_settings_repository: Annotated[
+        BusinessSettingsRepository,
+        Depends(get_business_settings_repository),
+    ],
+) -> UpdateKnowledgeSettingsResponse:
+    """Configure how a business's knowledge cache behaves - whether its
+    agents share one cache or stay isolated, and how long a cached answer
+    stays eligible for reuse before it's treated as stale.
+
+    This is the API alternative to updating the businesses table directly."""
+
+    updated = await business_settings_repository.update_knowledge_settings(
+        tenant_id=request.tenant_id,
+        business_id=request.business_id,
+        knowledge_scope=request.knowledge_scope,
+        knowledge_ttl_days=request.knowledge_ttl_days,
+    )
+
+    if updated is None:
+        raise HTTPException(status_code=404, detail="No such business for this tenant.")
+
+    return UpdateKnowledgeSettingsResponse(
+        knowledge_scope=updated.knowledge_scope,
+        knowledge_ttl_days=updated.knowledge_ttl_days,
+    )
+
+
+@router.post("/knowledge/answers", response_model=AddAnsweredQuestionResponse)
+async def add_answered_question(
+    request: AddAnsweredQuestionRequest,
+    embedding_provider: Annotated[
+        EmbeddingProvider,
+        Depends(get_embedding_provider),
+    ],
+    answered_question_repository: Annotated[
+        AnsweredQuestionRepository,
+        Depends(get_answered_question_repository),
+    ],
+) -> AddAnsweredQuestionResponse:
+    """Seed the knowledge cache directly with a known (question, answer)
+    pair, so it's reusable immediately - without waiting for a real caller
+    to trigger a fallback and someone to report the answer back first."""
+
+    knowledge_service = KnowledgeService(
+        embedding_provider=embedding_provider,
+        answered_question_repository=answered_question_repository,
+    )
+
+    await knowledge_service.add_answered_question(
+        tenant_id=request.tenant_id,
+        business_id=request.business_id,
+        agent_id=request.agent_id,
+        question=request.question,
+        answer=request.answer,
+    )
+
+    return AddAnsweredQuestionResponse(stored=True)

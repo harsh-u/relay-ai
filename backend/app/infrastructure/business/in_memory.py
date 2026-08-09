@@ -31,3 +31,24 @@ class InMemoryBusinessSettingsRepository(BusinessSettingsRepository):
                 knowledge_ttl_days=self._default_ttl_days,
             ),
         )
+
+    async def update_knowledge_settings(
+        self,
+        tenant_id: str,
+        business_id: str,
+        knowledge_scope: KnowledgeScope | None,
+        knowledge_ttl_days: int | None,
+    ) -> BusinessKnowledgeSettings | None:
+        current = await self.get_knowledge_settings(tenant_id, business_id)
+
+        updated = BusinessKnowledgeSettings(
+            knowledge_scope=(
+                knowledge_scope if knowledge_scope is not None else current.knowledge_scope
+            ),
+            knowledge_ttl_days=(
+                knowledge_ttl_days if knowledge_ttl_days is not None else current.knowledge_ttl_days
+            ),
+        )
+        self._overrides[(tenant_id, business_id)] = updated
+
+        return updated
