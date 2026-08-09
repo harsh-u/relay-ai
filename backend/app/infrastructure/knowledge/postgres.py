@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import delete, select
@@ -24,8 +24,36 @@ class PostgresAnsweredQuestionRepository(AnsweredQuestionRepository):
         question: str,
         answer: str,
         embedding: list[float],
+        dedup_similarity_threshold: float,
     ) -> None:
-        row = AnsweredQuestionModel(
+        distance = AnsweredQuestionModel.embedding.cosine_distance(embedding)
+
+        statement = (
+            select(AnsweredQuestionModel, distance)
+            .where(
+                AnsweredQuestionModel.tenant_id == UUID(tenant_id),
+                AnsweredQuestionModel.business_id == UUID(business_id),
+                AnsweredQuestionModel.agent_id == agent_id,
+            )
+            .order_by(distance)
+            .limit(1)
+        )
+
+        result = await self._session.execute(statement)
+        row = result.first()
+
+        if row is not None:
+            existing, cosine_distance = row
+
+            if 1.0 - cosine_distance >= dedup_similarity_threshold:
+                existing.question = question
+                existing.answer = answer
+                existing.embedding = embedding
+                existing.created_at = datetime.now(UTC)
+                await self._session.flush()
+                return
+
+        new_row = AnsweredQuestionModel(
             tenant_id=UUID(tenant_id),
             business_id=UUID(business_id),
             agent_id=agent_id,
@@ -34,7 +62,7 @@ class PostgresAnsweredQuestionRepository(AnsweredQuestionRepository):
             embedding=embedding,
         )
 
-        self._session.add(row)
+        self._session.add(new_row)
         await self._session.flush()
 
     async def find_most_similar(

@@ -133,6 +133,7 @@ async def record_assistant_message(
         conversation_store=conversation_store,
         embedding_provider=embedding_provider,
         answered_question_repository=answered_question_repository,
+        dedup_similarity_threshold=get_settings().embedding_similarity_threshold,
     )
 
     await conversation_service.record_assistant_response(

@@ -6,7 +6,7 @@ from backend.app.domain.knowledge.answered_question import AnsweredQuestion
 from backend.app.domain.knowledge.repository import AnsweredQuestionRepository
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class _Entry:
     agent_id: str
     answered_question: AnsweredQuestion
@@ -25,8 +25,23 @@ class InMemoryAnsweredQuestionRepository(AnsweredQuestionRepository):
         question: str,
         answer: str,
         embedding: list[float],
+        dedup_similarity_threshold: float,
     ) -> None:
         entries = self._entries.setdefault((tenant_id, business_id), [])
+
+        for entry in entries:
+            if entry.agent_id != agent_id:
+                continue
+
+            if cosine_similarity(embedding, entry.embedding) >= dedup_similarity_threshold:
+                entry.answered_question = AnsweredQuestion(
+                    question=question,
+                    answer=answer,
+                    created_at=datetime.now(UTC),
+                )
+                entry.embedding = embedding
+                return
+
         entries.append(
             _Entry(
                 agent_id=agent_id,

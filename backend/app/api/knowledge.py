@@ -10,6 +10,7 @@ from backend.app.api.schemas.knowledge import (
     UpdateKnowledgeSettingsResponse,
 )
 from backend.app.application.knowledge import KnowledgeService
+from backend.app.config.settings import get_settings
 from backend.app.domain.business.repository import BusinessSettingsRepository
 from backend.app.domain.embedding.provider import EmbeddingProvider
 from backend.app.domain.knowledge.repository import AnsweredQuestionRepository
@@ -111,6 +112,7 @@ async def add_answered_question(
     knowledge_service = KnowledgeService(
         embedding_provider=embedding_provider,
         answered_question_repository=answered_question_repository,
+        dedup_similarity_threshold=get_settings().embedding_similarity_threshold,
     )
 
     await knowledge_service.add_answered_question(

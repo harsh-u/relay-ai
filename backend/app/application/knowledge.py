@@ -9,9 +9,11 @@ class KnowledgeService:
         self,
         embedding_provider: EmbeddingProvider,
         answered_question_repository: AnsweredQuestionRepository,
+        dedup_similarity_threshold: float,
     ) -> None:
         self._embedding_provider = embedding_provider
         self._answered_question_repository = answered_question_repository
+        self._dedup_similarity_threshold = dedup_similarity_threshold
 
     async def add_answered_question(
         self,
@@ -34,4 +36,5 @@ class KnowledgeService:
             question=question,
             answer=answer,
             embedding=embedding,
+            dedup_similarity_threshold=self._dedup_similarity_threshold,
         )

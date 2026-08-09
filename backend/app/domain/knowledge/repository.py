@@ -17,7 +17,15 @@ class AnsweredQuestionRepository(ABC):
         question: str,
         answer: str,
         embedding: list[float],
+        dedup_similarity_threshold: float,
     ) -> None:
+        """Cache a (question, answer) pair.
+
+        If this same agent already has a cached question at least
+        `dedup_similarity_threshold` similar to this one, that existing
+        entry is refreshed in place (new answer, new embedding, new
+        timestamp) instead of adding another near-duplicate row.
+        """
         raise NotImplementedError
 
     @abstractmethod

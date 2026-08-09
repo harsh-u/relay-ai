@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from backend.app.infrastructure.embedding.fake import FakeEmbeddingProvider
+from backend.app.infrastructure.knowledge.in_memory import InMemoryAnsweredQuestionRepository
 
 TENANT_ID = "00000000-0000-0000-0000-000000000001"
 BUSINESS_ID = "00000000-0000-0000-0000-000000000002"
@@ -140,3 +141,46 @@ def test_add_answered_question_seeds_cache_instantly(
         "source": "knowledge:semantic_match",
         "intent": None,
     }
+
+
+def test_reporting_near_duplicate_questions_does_not_grow_the_cache(
+    client: TestClient,
+    embedding_provider: FakeEmbeddingProvider,
+    answered_question_repository: InMemoryAnsweredQuestionRepository,
+) -> None:
+    """Five different phrasings of the same underlying question, each
+    falling back and getting reported back, should collapse into one
+    cached entry instead of five near-duplicate rows."""
+
+    phrasings_and_answers = [
+        ("Do you accept Delta Dental insurance?", "Yes, we accept Delta Dental PPO."),
+        ("Is Delta Dental accepted here?", "Yes, we accept Delta Dental PPO."),
+        ("Do y'all take Delta Dental?", "Yes, we accept Delta Dental PPO."),
+        ("I have Delta Dental, does that work here?", "Yes, we accept Delta Dental PPO."),
+        ("Can I use my Delta Dental plan at your office?", "Yes, we accept Delta Dental PPO."),
+    ]
+
+    for index, (question, answer) in enumerate(phrasings_and_answers):
+        embedding_provider.set_vector(question, [1.0, 0.0, 0.0])
+
+        conversation_id = f"conv-dedup-{index}"
+        client.post(
+            "/v1/inference",
+            json={
+                "tenant_id": TENANT_ID,
+                "business_id": BUSINESS_ID,
+                "conversation_id": conversation_id,
+                "text": question,
+            },
+        )
+        client.post(
+            f"/v1/conversations/{conversation_id}/messages",
+            json={
+                "tenant_id": TENANT_ID,
+                "business_id": BUSINESS_ID,
+                "text": answer,
+            },
+        )
+
+    entries = answered_question_repository._entries[(TENANT_ID, BUSINESS_ID)]
+    assert len(entries) == 1

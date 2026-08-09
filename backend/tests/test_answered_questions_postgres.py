@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.infrastructure.knowledge.postgres import PostgresAnsweredQuestionRepository
@@ -60,6 +61,7 @@ async def test_save_and_find_most_similar(db_session: AsyncSession) -> None:
         question="Do you accept Delta Dental insurance?",
         answer="Yes, we're in-network with Delta Dental PPO.",
         embedding=_vector(1.0, 0.0, 0.0),
+        dedup_similarity_threshold=0.75,
     )
 
     result = await repository.find_most_similar(
@@ -88,6 +90,7 @@ async def test_find_most_similar_returns_closest_of_several(db_session: AsyncSes
         question="Do you accept Delta Dental insurance?",
         answer="Yes, we're in-network with Delta Dental PPO.",
         embedding=_vector(1.0, 0.0, 0.0),
+        dedup_similarity_threshold=0.75,
     )
     await repository.save(
         tenant_id=tenant_id,
@@ -96,6 +99,7 @@ async def test_find_most_similar_returns_closest_of_several(db_session: AsyncSes
         question="What time do you close on Saturdays?",
         answer="We close at 2pm on Saturdays.",
         embedding=_vector(0.0, 1.0, 0.0),
+        dedup_similarity_threshold=0.75,
     )
 
     result = await repository.find_most_similar(
@@ -123,6 +127,7 @@ async def test_business_isolation(db_session: AsyncSession) -> None:
         question="Do you accept Delta Dental insurance?",
         answer="Yes, we're in-network with Delta Dental PPO.",
         embedding=_vector(1.0, 0.0, 0.0),
+        dedup_similarity_threshold=0.75,
     )
 
     result = await repository.find_most_similar(
@@ -148,6 +153,7 @@ async def test_tenant_isolation(db_session: AsyncSession) -> None:
         question="Do you accept Delta Dental insurance?",
         answer="Yes, we're in-network with Delta Dental PPO.",
         embedding=_vector(1.0, 0.0, 0.0),
+        dedup_similarity_threshold=0.75,
     )
 
     result = await repository.find_most_similar(
@@ -172,6 +178,7 @@ async def test_agent_isolation_when_agent_id_given(db_session: AsyncSession) -> 
         question="Do you accept Delta Dental insurance?",
         answer="Yes, we're in-network with Delta Dental PPO.",
         embedding=_vector(1.0, 0.0, 0.0),
+        dedup_similarity_threshold=0.75,
     )
 
     result_for_other_agent = await repository.find_most_similar(
@@ -239,6 +246,7 @@ async def test_clear_deletes_all_for_business_when_no_agent_given(db_session: As
         question="Do you accept Delta Dental insurance?",
         answer="Yes.",
         embedding=_vector(1.0, 0.0, 0.0),
+        dedup_similarity_threshold=0.75,
     )
     await repository.save(
         tenant_id=tenant_id,
@@ -247,6 +255,7 @@ async def test_clear_deletes_all_for_business_when_no_agent_given(db_session: As
         question="What are your hours?",
         answer="9 to 5.",
         embedding=_vector(0.0, 1.0, 0.0),
+        dedup_similarity_threshold=0.75,
     )
 
     deleted = await repository.clear(tenant_id=tenant_id, business_id=business_id, agent_id=None)
@@ -274,6 +283,7 @@ async def test_clear_only_deletes_given_agent(db_session: AsyncSession) -> None:
         question="Do you accept Delta Dental insurance?",
         answer="Yes.",
         embedding=_vector(1.0, 0.0, 0.0),
+        dedup_similarity_threshold=0.75,
     )
     await repository.save(
         tenant_id=tenant_id,
@@ -282,6 +292,7 @@ async def test_clear_only_deletes_given_agent(db_session: AsyncSession) -> None:
         question="What are your hours?",
         answer="9 to 5.",
         embedding=_vector(0.0, 1.0, 0.0),
+        dedup_similarity_threshold=0.75,
     )
 
     deleted = await repository.clear(
@@ -298,3 +309,104 @@ async def test_clear_only_deletes_given_agent(db_session: AsyncSession) -> None:
         min_created_at=_FAR_PAST,
     )
     assert remaining_for_b is not None
+
+
+async def _row_count(db_session: AsyncSession, tenant_id: str, business_id: str) -> int:
+    statement = select(func.count()).where(
+        AnsweredQuestionModel.tenant_id == UUID(tenant_id),
+        AnsweredQuestionModel.business_id == UUID(business_id),
+    )
+    result = await db_session.execute(statement)
+    return result.scalar_one()
+
+
+async def test_dedup_updates_existing_row_instead_of_inserting_a_new_one(
+    db_session: AsyncSession,
+) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresAnsweredQuestionRepository(db_session)
+
+    await repository.save(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-1",
+        question="Do you accept Delta Dental insurance?",
+        answer="Yes, we accept Delta Dental PPO.",
+        embedding=_vector(1.0, 0.0, 0.0),
+        dedup_similarity_threshold=0.75,
+    )
+    await repository.save(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-1",
+        question="Is Delta Dental accepted here?",
+        answer="Yes, we accept Delta Dental PPO and HMO.",
+        embedding=_vector(0.99, 0.01, 0.0),
+        dedup_similarity_threshold=0.75,
+    )
+
+    assert await _row_count(db_session, tenant_id, business_id) == 1
+
+    result = await repository.find_most_similar(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-1",
+        embedding=_vector(1.0, 0.0, 0.0),
+        min_created_at=_FAR_PAST,
+    )
+    assert result is not None
+    answered_question, _ = result
+    assert answered_question.question == "Is Delta Dental accepted here?"
+    assert answered_question.answer == "Yes, we accept Delta Dental PPO and HMO."
+
+
+async def test_dissimilar_questions_are_not_deduped(db_session: AsyncSession) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresAnsweredQuestionRepository(db_session)
+
+    await repository.save(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-1",
+        question="Do you accept Delta Dental insurance?",
+        answer="Yes.",
+        embedding=_vector(1.0, 0.0, 0.0),
+        dedup_similarity_threshold=0.75,
+    )
+    await repository.save(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-1",
+        question="What time do you close on Saturdays?",
+        answer="2pm.",
+        embedding=_vector(0.0, 1.0, 0.0),
+        dedup_similarity_threshold=0.75,
+    )
+
+    assert await _row_count(db_session, tenant_id, business_id) == 2
+
+
+async def test_dedup_does_not_cross_agents(db_session: AsyncSession) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresAnsweredQuestionRepository(db_session)
+
+    await repository.save(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-a",
+        question="Do you accept Delta Dental insurance?",
+        answer="Yes.",
+        embedding=_vector(1.0, 0.0, 0.0),
+        dedup_similarity_threshold=0.75,
+    )
+    await repository.save(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-b",
+        question="Is Delta Dental accepted here?",
+        answer="Yes.",
+        embedding=_vector(0.99, 0.01, 0.0),
+        dedup_similarity_threshold=0.75,
+    )
+
+    assert await _row_count(db_session, tenant_id, business_id) == 2
