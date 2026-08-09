@@ -16,6 +16,7 @@ class InferenceRequest:
     tenant_id: str
     business_id: str
     conversation_id: str
+    agent_id: str
     text: str
 
 

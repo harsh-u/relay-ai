@@ -7,12 +7,15 @@ from sqlalchemy.pool import NullPool
 
 from backend.app.config.settings import get_settings
 from backend.app.domain.analytics.repository import DecisionRepository
+from backend.app.domain.business.repository import BusinessSettingsRepository
 from backend.app.domain.conversation.store import ConversationStore
 from backend.app.domain.embedding.provider import EmbeddingProvider
 from backend.app.domain.knowledge.repository import AnsweredQuestionRepository
 from backend.app.domain.matching.pattern_repository import IntentPatternRepository
 from backend.app.infrastructure.analytics.dependencies import get_decision_repository
 from backend.app.infrastructure.analytics.in_memory import InMemoryDecisionRepository
+from backend.app.infrastructure.business.dependencies import get_business_settings_repository
+from backend.app.infrastructure.business.in_memory import InMemoryBusinessSettingsRepository
 from backend.app.infrastructure.conversation.dependencies import get_conversation_store
 from backend.app.infrastructure.conversation.in_memory import InMemoryConversationStore
 from backend.app.infrastructure.embedding.dependencies import get_embedding_provider
@@ -47,6 +50,11 @@ def answered_question_repository() -> InMemoryAnsweredQuestionRepository:
 
 
 @pytest.fixture
+def business_settings_repository() -> InMemoryBusinessSettingsRepository:
+    return InMemoryBusinessSettingsRepository()
+
+
+@pytest.fixture
 def decision_repository() -> InMemoryDecisionRepository:
     return InMemoryDecisionRepository()
 
@@ -57,6 +65,7 @@ def client(
     pattern_repository: IntentPatternRepository,
     embedding_provider: EmbeddingProvider,
     answered_question_repository: AnsweredQuestionRepository,
+    business_settings_repository: BusinessSettingsRepository,
     decision_repository: DecisionRepository,
 ) -> Iterator[TestClient]:
     """API test client backed by isolated in-memory/fake stores.
@@ -64,10 +73,9 @@ def client(
     Unit/API tests must not depend on a developer-local PostgreSQL instance
     or the real (large) embedding model - see the *_postgres.py integration
     test files for real-DB coverage. Tests that need business-specific
-    custom intent patterns, controlled embedding similarity, or to inspect
-    recorded decisions can additionally request the
-    `pattern_repository`/`embedding_provider`/`answered_question_repository`/
-    `decision_repository` fixtures to seed or inspect them.
+    custom intent patterns, controlled embedding similarity, non-default
+    knowledge-scope/TTL settings, or to inspect recorded decisions can
+    additionally request the corresponding fixture to seed or inspect it.
     """
 
     async def _get_test_store() -> ConversationStore:
@@ -82,6 +90,9 @@ def client(
     async def _get_test_answered_questions() -> AnsweredQuestionRepository:
         return answered_question_repository
 
+    async def _get_test_business_settings() -> BusinessSettingsRepository:
+        return business_settings_repository
+
     async def _get_test_decisions() -> DecisionRepository:
         return decision_repository
 
@@ -89,6 +100,7 @@ def client(
     app.dependency_overrides[get_intent_pattern_repository] = _get_test_patterns
     app.dependency_overrides[get_embedding_provider] = _get_test_embeddings
     app.dependency_overrides[get_answered_question_repository] = _get_test_answered_questions
+    app.dependency_overrides[get_business_settings_repository] = _get_test_business_settings
     app.dependency_overrides[get_decision_repository] = _get_test_decisions
     try:
         yield TestClient(app)
@@ -97,6 +109,7 @@ def client(
         del app.dependency_overrides[get_intent_pattern_repository]
         del app.dependency_overrides[get_embedding_provider]
         del app.dependency_overrides[get_answered_question_repository]
+        del app.dependency_overrides[get_business_settings_repository]
         del app.dependency_overrides[get_decision_repository]
 
 

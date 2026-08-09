@@ -19,6 +19,7 @@ class PostgresDecisionRepository(DecisionRepository):
             tenant_id=UUID(decision.tenant_id),
             business_id=UUID(decision.business_id),
             conversation_id=decision.conversation_id,
+            agent_id=decision.agent_id,
             action=decision.action,
             source=decision.source,
             intent=decision.intent,

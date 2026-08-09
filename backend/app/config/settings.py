@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     embedding_model_dir: str = "models/indic-sentence-bert-nli-int8"
     embedding_similarity_threshold: float = 0.75
 
+    knowledge_cache_ttl_days: int = 30
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

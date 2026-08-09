@@ -1,12 +1,15 @@
-from uuid import uuid4
+from datetime import UTC, datetime, timedelta
+from uuid import UUID, uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.infrastructure.knowledge.postgres import PostgresAnsweredQuestionRepository
+from backend.app.models.answered_question import AnsweredQuestionModel
 from backend.app.models.business import Business
 from backend.app.models.tenant import Tenant
 
 _DIM = 768
+_FAR_PAST = datetime(2000, 1, 1, tzinfo=UTC)
 
 
 def _vector(*values: float) -> list[float]:
@@ -38,7 +41,9 @@ async def test_find_most_similar_returns_none_when_empty(db_session: AsyncSessio
     result = await repository.find_most_similar(
         tenant_id=tenant_id,
         business_id=business_id,
+        agent_id=None,
         embedding=_vector(1.0),
+        min_created_at=_FAR_PAST,
     )
 
     assert result is None
@@ -51,6 +56,7 @@ async def test_save_and_find_most_similar(db_session: AsyncSession) -> None:
     await repository.save(
         tenant_id=tenant_id,
         business_id=business_id,
+        agent_id="agent-1",
         question="Do you accept Delta Dental insurance?",
         answer="Yes, we're in-network with Delta Dental PPO.",
         embedding=_vector(1.0, 0.0, 0.0),
@@ -59,7 +65,9 @@ async def test_save_and_find_most_similar(db_session: AsyncSession) -> None:
     result = await repository.find_most_similar(
         tenant_id=tenant_id,
         business_id=business_id,
+        agent_id=None,
         embedding=_vector(1.0, 0.0, 0.0),
+        min_created_at=_FAR_PAST,
     )
 
     assert result is not None
@@ -76,6 +84,7 @@ async def test_find_most_similar_returns_closest_of_several(db_session: AsyncSes
     await repository.save(
         tenant_id=tenant_id,
         business_id=business_id,
+        agent_id="agent-1",
         question="Do you accept Delta Dental insurance?",
         answer="Yes, we're in-network with Delta Dental PPO.",
         embedding=_vector(1.0, 0.0, 0.0),
@@ -83,6 +92,7 @@ async def test_find_most_similar_returns_closest_of_several(db_session: AsyncSes
     await repository.save(
         tenant_id=tenant_id,
         business_id=business_id,
+        agent_id="agent-1",
         question="What time do you close on Saturdays?",
         answer="We close at 2pm on Saturdays.",
         embedding=_vector(0.0, 1.0, 0.0),
@@ -91,7 +101,9 @@ async def test_find_most_similar_returns_closest_of_several(db_session: AsyncSes
     result = await repository.find_most_similar(
         tenant_id=tenant_id,
         business_id=business_id,
+        agent_id=None,
         embedding=_vector(0.9, 0.1, 0.0),
+        min_created_at=_FAR_PAST,
     )
 
     assert result is not None
@@ -107,6 +119,7 @@ async def test_business_isolation(db_session: AsyncSession) -> None:
     await repository.save(
         tenant_id=tenant_id,
         business_id=business_id_a,
+        agent_id="agent-1",
         question="Do you accept Delta Dental insurance?",
         answer="Yes, we're in-network with Delta Dental PPO.",
         embedding=_vector(1.0, 0.0, 0.0),
@@ -115,7 +128,9 @@ async def test_business_isolation(db_session: AsyncSession) -> None:
     result = await repository.find_most_similar(
         tenant_id=tenant_id,
         business_id=business_id_b,
+        agent_id=None,
         embedding=_vector(1.0, 0.0, 0.0),
+        min_created_at=_FAR_PAST,
     )
 
     assert result is None
@@ -129,6 +144,7 @@ async def test_tenant_isolation(db_session: AsyncSession) -> None:
     await repository.save(
         tenant_id=tenant_id_a,
         business_id=business_id,
+        agent_id="agent-1",
         question="Do you accept Delta Dental insurance?",
         answer="Yes, we're in-network with Delta Dental PPO.",
         embedding=_vector(1.0, 0.0, 0.0),
@@ -137,7 +153,148 @@ async def test_tenant_isolation(db_session: AsyncSession) -> None:
     result = await repository.find_most_similar(
         tenant_id=tenant_id_b,
         business_id=business_id,
+        agent_id=None,
         embedding=_vector(1.0, 0.0, 0.0),
+        min_created_at=_FAR_PAST,
     )
 
     assert result is None
+
+
+async def test_agent_isolation_when_agent_id_given(db_session: AsyncSession) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresAnsweredQuestionRepository(db_session)
+
+    await repository.save(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-a",
+        question="Do you accept Delta Dental insurance?",
+        answer="Yes, we're in-network with Delta Dental PPO.",
+        embedding=_vector(1.0, 0.0, 0.0),
+    )
+
+    result_for_other_agent = await repository.find_most_similar(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-b",
+        embedding=_vector(1.0, 0.0, 0.0),
+        min_created_at=_FAR_PAST,
+    )
+    result_for_same_agent = await repository.find_most_similar(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-a",
+        embedding=_vector(1.0, 0.0, 0.0),
+        min_created_at=_FAR_PAST,
+    )
+    result_shared = await repository.find_most_similar(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id=None,
+        embedding=_vector(1.0, 0.0, 0.0),
+        min_created_at=_FAR_PAST,
+    )
+
+    assert result_for_other_agent is None
+    assert result_for_same_agent is not None
+    assert result_shared is not None
+
+
+async def test_min_created_at_excludes_stale_entries(db_session: AsyncSession) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresAnsweredQuestionRepository(db_session)
+
+    stale_row = AnsweredQuestionModel(
+        tenant_id=UUID(tenant_id),
+        business_id=UUID(business_id),
+        agent_id="agent-1",
+        question="What is your return policy?",
+        answer="30 days, no receipt needed.",
+        embedding=_vector(1.0, 0.0, 0.0),
+        created_at=datetime.now(UTC) - timedelta(days=90),
+    )
+    db_session.add(stale_row)
+    await db_session.flush()
+
+    result = await repository.find_most_similar(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id=None,
+        embedding=_vector(1.0, 0.0, 0.0),
+        min_created_at=datetime.now(UTC) - timedelta(days=30),
+    )
+
+    assert result is None
+
+
+async def test_clear_deletes_all_for_business_when_no_agent_given(db_session: AsyncSession) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresAnsweredQuestionRepository(db_session)
+
+    await repository.save(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-a",
+        question="Do you accept Delta Dental insurance?",
+        answer="Yes.",
+        embedding=_vector(1.0, 0.0, 0.0),
+    )
+    await repository.save(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-b",
+        question="What are your hours?",
+        answer="9 to 5.",
+        embedding=_vector(0.0, 1.0, 0.0),
+    )
+
+    deleted = await repository.clear(tenant_id=tenant_id, business_id=business_id, agent_id=None)
+
+    assert deleted == 2
+
+    result = await repository.find_most_similar(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id=None,
+        embedding=_vector(1.0, 0.0, 0.0),
+        min_created_at=_FAR_PAST,
+    )
+    assert result is None
+
+
+async def test_clear_only_deletes_given_agent(db_session: AsyncSession) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresAnsweredQuestionRepository(db_session)
+
+    await repository.save(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-a",
+        question="Do you accept Delta Dental insurance?",
+        answer="Yes.",
+        embedding=_vector(1.0, 0.0, 0.0),
+    )
+    await repository.save(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-b",
+        question="What are your hours?",
+        answer="9 to 5.",
+        embedding=_vector(0.0, 1.0, 0.0),
+    )
+
+    deleted = await repository.clear(
+        tenant_id=tenant_id, business_id=business_id, agent_id="agent-a"
+    )
+
+    assert deleted == 1
+
+    remaining_for_b = await repository.find_most_similar(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-b",
+        embedding=_vector(0.0, 1.0, 0.0),
+        min_created_at=_FAR_PAST,
+    )
+    assert remaining_for_b is not None

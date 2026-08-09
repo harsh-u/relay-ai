@@ -2,7 +2,7 @@ from datetime import datetime
 from uuid import UUID, uuid4
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, ForeignKey, Index, Text, func
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -45,6 +45,13 @@ class AnsweredQuestionModel(Base):
         PostgreSQLUUID(as_uuid=True),
         ForeignKey("businesses.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
+    )
+
+    agent_id: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        server_default="default",
         index=True,
     )
 

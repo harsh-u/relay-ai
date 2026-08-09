@@ -35,6 +35,7 @@ class DecisionLogModel(Base):
     )
 
     conversation_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    agent_id: Mapped[str] = mapped_column(String(255), nullable=False, server_default="default")
 
     action: Mapped[str] = mapped_column(String(20), nullable=False)
     source: Mapped[str | None] = mapped_column(String(50), nullable=True)

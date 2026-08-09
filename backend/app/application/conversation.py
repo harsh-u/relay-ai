@@ -22,6 +22,7 @@ class ConversationService:
         tenant_id: str,
         business_id: str,
         conversation_id: str,
+        agent_id: str,
         text: str,
     ) -> None:
         normalized_text = text.strip()
@@ -44,7 +45,7 @@ class ConversationService:
 
         if last_question is not None:
             await self._cache_answered_question(
-                tenant_id, business_id, last_question, normalized_text
+                tenant_id, business_id, agent_id, last_question, normalized_text
             )
 
     async def _last_user_question(self, scope: ConversationScope) -> str | None:
@@ -60,6 +61,7 @@ class ConversationService:
         self,
         tenant_id: str,
         business_id: str,
+        agent_id: str,
         question: str,
         answer: str,
     ) -> None:
@@ -68,6 +70,7 @@ class ConversationService:
         await self._answered_question_repository.save(
             tenant_id=tenant_id,
             business_id=business_id,
+            agent_id=agent_id,
             question=question,
             answer=answer,
             embedding=embedding,

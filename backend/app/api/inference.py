@@ -14,12 +14,14 @@ from backend.app.application.conversation import ConversationService
 from backend.app.application.inference import InferenceService
 from backend.app.config.settings import get_settings
 from backend.app.domain.analytics.repository import DecisionRepository
+from backend.app.domain.business.repository import BusinessSettingsRepository
 from backend.app.domain.conversation.store import ConversationStore
 from backend.app.domain.embedding.provider import EmbeddingProvider
 from backend.app.domain.inference import InferenceRequest
 from backend.app.domain.knowledge.repository import AnsweredQuestionRepository
 from backend.app.domain.matching.pattern_repository import IntentPatternRepository
 from backend.app.infrastructure.analytics.dependencies import get_decision_repository
+from backend.app.infrastructure.business.dependencies import get_business_settings_repository
 from backend.app.infrastructure.conversation.dependencies import (
     get_conversation_store,
 )
@@ -56,6 +58,10 @@ async def inference(
         AnsweredQuestionRepository,
         Depends(get_answered_question_repository),
     ],
+    business_settings_repository: Annotated[
+        BusinessSettingsRepository,
+        Depends(get_business_settings_repository),
+    ],
     decision_repository: Annotated[
         DecisionRepository,
         Depends(get_decision_repository),
@@ -68,6 +74,7 @@ async def inference(
         conversation_store=conversation_store,
         embedding_provider=embedding_provider,
         answered_question_repository=answered_question_repository,
+        business_settings_repository=business_settings_repository,
         decision_repository=decision_repository,
         semantic_match_threshold=get_settings().embedding_similarity_threshold,
     )
@@ -77,6 +84,7 @@ async def inference(
             tenant_id=request.tenant_id,
             business_id=request.business_id,
             conversation_id=request.conversation_id,
+            agent_id=request.agent_id,
             text=request.text,
         )
     )
@@ -121,6 +129,7 @@ async def record_assistant_message(
         tenant_id=request.tenant_id,
         business_id=request.business_id,
         conversation_id=conversation_id,
+        agent_id=request.agent_id,
         text=request.text,
     )
 

@@ -34,6 +34,7 @@ def _record(
         tenant_id=tenant_id,
         business_id=business_id,
         conversation_id="conversation-1",
+        agent_id="default",
         action=action,
         source=source,
         intent=None,

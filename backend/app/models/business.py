@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -46,6 +46,17 @@ class Business(Base):
     slug: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
+    )
+
+    knowledge_scope: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        server_default="shared",
+    )
+
+    knowledge_ttl_days: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(
