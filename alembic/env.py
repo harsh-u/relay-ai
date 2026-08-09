@@ -11,6 +11,7 @@ from backend.app.models import (  # noqa: F401
     AnsweredQuestionModel,
     Business,
     ConversationMessageModel,
+    DecisionLogModel,
     IntentPatternModel,
     Tenant,
 )

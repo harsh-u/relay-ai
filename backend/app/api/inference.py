@@ -13,11 +13,13 @@ from backend.app.api.schemas.inference import (
 from backend.app.application.conversation import ConversationService
 from backend.app.application.inference import InferenceService
 from backend.app.config.settings import get_settings
+from backend.app.domain.analytics.repository import DecisionRepository
 from backend.app.domain.conversation.store import ConversationStore
 from backend.app.domain.embedding.provider import EmbeddingProvider
 from backend.app.domain.inference import InferenceRequest
 from backend.app.domain.knowledge.repository import AnsweredQuestionRepository
 from backend.app.domain.matching.pattern_repository import IntentPatternRepository
+from backend.app.infrastructure.analytics.dependencies import get_decision_repository
 from backend.app.infrastructure.conversation.dependencies import (
     get_conversation_store,
 )
@@ -54,6 +56,10 @@ async def inference(
         AnsweredQuestionRepository,
         Depends(get_answered_question_repository),
     ],
+    decision_repository: Annotated[
+        DecisionRepository,
+        Depends(get_decision_repository),
+    ],
 ) -> InferenceResponseBody:
     """Process an STT request through the RelayAI inference layer."""
 
@@ -62,6 +68,7 @@ async def inference(
         conversation_store=conversation_store,
         embedding_provider=embedding_provider,
         answered_question_repository=answered_question_repository,
+        decision_repository=decision_repository,
         semantic_match_threshold=get_settings().embedding_similarity_threshold,
     )
 

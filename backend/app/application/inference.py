@@ -1,3 +1,8 @@
+from datetime import UTC, datetime
+from time import perf_counter
+
+from backend.app.domain.analytics.decision_record import DecisionRecord
+from backend.app.domain.analytics.repository import DecisionRepository
 from backend.app.domain.conversation.scope import ConversationScope
 from backend.app.domain.conversation.store import ConversationStore
 from backend.app.domain.embedding.provider import EmbeddingProvider
@@ -21,20 +26,45 @@ class InferenceService:
         conversation_store: ConversationStore,
         embedding_provider: EmbeddingProvider,
         answered_question_repository: AnsweredQuestionRepository,
+        decision_repository: DecisionRepository,
         semantic_match_threshold: float,
     ) -> None:
         self._pattern_repository = pattern_repository
         self._conversation_store = conversation_store
         self._embedding_provider = embedding_provider
         self._answered_question_repository = answered_question_repository
+        self._decision_repository = decision_repository
         self._semantic_match_threshold = semantic_match_threshold
 
     async def process(
         self,
         request: InferenceRequest,
     ) -> InferenceResponse:
-        """Process an inference request."""
+        """Process an inference request, recording the decision made."""
 
+        start = perf_counter()
+        response = await self._decide(request)
+        latency_ms = (perf_counter() - start) * 1000
+
+        await self._decision_repository.record(
+            DecisionRecord(
+                tenant_id=request.tenant_id,
+                business_id=request.business_id,
+                conversation_id=request.conversation_id,
+                action=response.action,
+                source=response.source,
+                intent=response.intent.value if response.intent is not None else None,
+                latency_ms=latency_ms,
+                created_at=datetime.now(UTC),
+            )
+        )
+
+        return response
+
+    async def _decide(
+        self,
+        request: InferenceRequest,
+    ) -> InferenceResponse:
         scope = ConversationScope(
             tenant_id=request.tenant_id,
             business_id=request.business_id,
