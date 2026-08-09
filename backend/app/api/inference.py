@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Path
 
 from backend.app.api.schemas.conversation import (
     AssistantMessageRequest,
@@ -67,7 +67,10 @@ async def inference(
         Depends(get_decision_repository),
     ],
 ) -> InferenceResponseBody:
-    """Process an STT request through the RelayAI inference layer."""
+    """Process one STT-transcribed turn. Returns 'respond' with text to
+    speak directly (skip your LLM), or 'fallback' meaning RelayAI has no
+    answer - call your own LLM as usual, then report its answer back via
+    POST /v1/conversations/{conversation_id}/messages."""
 
     inference_service = InferenceService(
         pattern_repository=pattern_repository,
@@ -102,7 +105,10 @@ async def inference(
     response_model=AssistantMessageResponse,
 )
 async def record_assistant_message(
-    conversation_id: str,
+    conversation_id: Annotated[
+        str,
+        Path(description="The same conversation_id used in this call's /v1/inference requests."),
+    ],
     request: AssistantMessageRequest,
     conversation_store: Annotated[
         ConversationStore,
@@ -117,7 +123,11 @@ async def record_assistant_message(
         Depends(get_answered_question_repository),
     ],
 ) -> AssistantMessageResponse:
-    """Store an assistant response in conversation history."""
+    """Report back what your LLM answered for a 'fallback' turn. This is
+    also what feeds RelayAI's semantic knowledge cache - the question this
+    answer responds to (the last thing the caller said in this
+    conversation) gets cached so future callers asking something similar
+    can be answered directly next time."""
 
     conversation_service = ConversationService(
         conversation_store=conversation_store,

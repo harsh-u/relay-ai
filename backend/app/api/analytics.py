@@ -14,8 +14,10 @@ router = APIRouter(
 
 @router.get("/analytics/summary", response_model=DecisionSummaryResponse)
 async def get_decision_summary(
-    tenant_id: Annotated[str, Query(min_length=1)],
-    business_id: Annotated[str, Query(min_length=1)],
+    tenant_id: Annotated[
+        str, Query(min_length=1, description="The tenant this business belongs to.")
+    ],
+    business_id: Annotated[str, Query(min_length=1, description="The business to summarize.")],
     decision_repository: Annotated[
         DecisionRepository,
         Depends(get_decision_repository),
