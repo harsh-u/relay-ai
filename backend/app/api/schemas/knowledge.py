@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 from backend.app.domain.business.knowledge_scope import KnowledgeScope
@@ -101,3 +103,19 @@ class AddAnsweredQuestionResponse(BaseModel):
     """Confirmation that the answer is now cached and reusable."""
 
     stored: bool = True
+
+
+class AnsweredQuestionItem(BaseModel):
+    """One cached (question, answer) pair."""
+
+    agent_id: str
+    question: str
+    answer: str
+    created_at: datetime
+
+
+class ListAnsweredQuestionsResponse(BaseModel):
+    """A business's cached answers, newest first - for inspecting the
+    knowledge cache, not for matching. Capped at 200 rows."""
+
+    answers: list[AnsweredQuestionItem]

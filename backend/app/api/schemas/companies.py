@@ -1,0 +1,35 @@
+from datetime import datetime
+
+from pydantic import BaseModel, Field
+
+from backend.app.domain.business.knowledge_scope import KnowledgeScope
+
+
+class CreateCompanyRequest(BaseModel):
+    """Create a new company (a tenant + its one business) - mainly for the
+    test panel, so companies can be created without a direct DB insert."""
+
+    name: str = Field(
+        min_length=1,
+        description="The company's display name.",
+        examples=["Bright Smile Dental"],
+    )
+
+
+class CompanyResponse(BaseModel):
+    """A company - use `id` as this company's `business_id`, and `tenant_id`
+    as its `tenant_id`, in every other RelayAI endpoint."""
+
+    id: str = Field(description="This company's business_id for every other endpoint.")
+    tenant_id: str = Field(description="This company's tenant_id for every other endpoint.")
+    name: str
+    slug: str
+    knowledge_scope: KnowledgeScope
+    knowledge_ttl_days: int
+    created_at: datetime
+
+
+class ListCompaniesResponse(BaseModel):
+    """Every company that exists, newest first."""
+
+    companies: list[CompanyResponse]

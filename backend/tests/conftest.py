@@ -7,6 +7,7 @@ from sqlalchemy.pool import NullPool
 
 from backend.app.config.settings import get_settings
 from backend.app.domain.analytics.repository import DecisionRepository
+from backend.app.domain.business.company_repository import CompanyRepository
 from backend.app.domain.business.repository import BusinessSettingsRepository
 from backend.app.domain.conversation.store import ConversationStore
 from backend.app.domain.embedding.provider import EmbeddingProvider
@@ -14,8 +15,12 @@ from backend.app.domain.knowledge.repository import AnsweredQuestionRepository
 from backend.app.domain.matching.pattern_repository import IntentPatternRepository
 from backend.app.infrastructure.analytics.dependencies import get_decision_repository
 from backend.app.infrastructure.analytics.in_memory import InMemoryDecisionRepository
-from backend.app.infrastructure.business.dependencies import get_business_settings_repository
+from backend.app.infrastructure.business.dependencies import (
+    get_business_settings_repository,
+    get_company_repository,
+)
 from backend.app.infrastructure.business.in_memory import InMemoryBusinessSettingsRepository
+from backend.app.infrastructure.business.in_memory_company import InMemoryCompanyRepository
 from backend.app.infrastructure.conversation.dependencies import get_conversation_store
 from backend.app.infrastructure.conversation.in_memory import InMemoryConversationStore
 from backend.app.infrastructure.embedding.dependencies import get_embedding_provider
@@ -60,6 +65,11 @@ def decision_repository() -> InMemoryDecisionRepository:
 
 
 @pytest.fixture
+def company_repository() -> InMemoryCompanyRepository:
+    return InMemoryCompanyRepository()
+
+
+@pytest.fixture
 def client(
     conversation_store: ConversationStore,
     pattern_repository: IntentPatternRepository,
@@ -67,6 +77,7 @@ def client(
     answered_question_repository: AnsweredQuestionRepository,
     business_settings_repository: BusinessSettingsRepository,
     decision_repository: DecisionRepository,
+    company_repository: CompanyRepository,
 ) -> Iterator[TestClient]:
     """API test client backed by isolated in-memory/fake stores.
 
@@ -96,12 +107,16 @@ def client(
     async def _get_test_decisions() -> DecisionRepository:
         return decision_repository
 
+    async def _get_test_companies() -> CompanyRepository:
+        return company_repository
+
     app.dependency_overrides[get_conversation_store] = _get_test_store
     app.dependency_overrides[get_intent_pattern_repository] = _get_test_patterns
     app.dependency_overrides[get_embedding_provider] = _get_test_embeddings
     app.dependency_overrides[get_answered_question_repository] = _get_test_answered_questions
     app.dependency_overrides[get_business_settings_repository] = _get_test_business_settings
     app.dependency_overrides[get_decision_repository] = _get_test_decisions
+    app.dependency_overrides[get_company_repository] = _get_test_companies
     try:
         yield TestClient(app)
     finally:
@@ -111,6 +126,7 @@ def client(
         del app.dependency_overrides[get_answered_question_repository]
         del app.dependency_overrides[get_business_settings_repository]
         del app.dependency_overrides[get_decision_repository]
+        del app.dependency_overrides[get_company_repository]
 
 
 @pytest.fixture

@@ -5,7 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from backend.app.api.schemas.knowledge import (
     AddAnsweredQuestionRequest,
     AddAnsweredQuestionResponse,
+    AnsweredQuestionItem,
     ClearKnowledgeCacheResponse,
+    ListAnsweredQuestionsResponse,
     UpdateKnowledgeSettingsRequest,
     UpdateKnowledgeSettingsResponse,
 )
@@ -61,6 +63,31 @@ async def clear_knowledge_cache(
     )
 
     return ClearKnowledgeCacheResponse(deleted=deleted)
+
+
+@router.get("/knowledge/settings", response_model=UpdateKnowledgeSettingsResponse)
+async def get_knowledge_settings(
+    tenant_id: Annotated[
+        str, Query(min_length=1, description="The tenant this business belongs to.")
+    ],
+    business_id: Annotated[str, Query(min_length=1, description="The business to look up.")],
+    business_settings_repository: Annotated[
+        BusinessSettingsRepository,
+        Depends(get_business_settings_repository),
+    ],
+) -> UpdateKnowledgeSettingsResponse:
+    """Read a business's current knowledge-cache configuration, without
+    changing it."""
+
+    settings = await business_settings_repository.get_knowledge_settings(
+        tenant_id=tenant_id,
+        business_id=business_id,
+    )
+
+    return UpdateKnowledgeSettingsResponse(
+        knowledge_scope=settings.knowledge_scope,
+        knowledge_ttl_days=settings.knowledge_ttl_days,
+    )
 
 
 @router.patch("/knowledge/settings", response_model=UpdateKnowledgeSettingsResponse)
@@ -124,3 +151,46 @@ async def add_answered_question(
     )
 
     return AddAnsweredQuestionResponse(stored=True)
+
+
+@router.get("/knowledge/answers", response_model=ListAnsweredQuestionsResponse)
+async def list_answered_questions(
+    tenant_id: Annotated[
+        str, Query(min_length=1, description="The tenant this business belongs to.")
+    ],
+    business_id: Annotated[str, Query(min_length=1, description="The business to look up.")],
+    answered_question_repository: Annotated[
+        AnsweredQuestionRepository,
+        Depends(get_answered_question_repository),
+    ],
+    agent_id: Annotated[
+        str | None,
+        Query(
+            description=(
+                "Only meaningful for businesses in 'isolated' scope. If "
+                "given, only that agent's cached answers are listed."
+            ),
+        ),
+    ] = None,
+) -> ListAnsweredQuestionsResponse:
+    """List a business's cached answers, newest first - for inspecting the
+    knowledge cache (e.g. to see dedup and TTL actually working), not for
+    matching. Capped at 200 rows."""
+
+    answers = await answered_question_repository.list_all(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id=agent_id,
+    )
+
+    return ListAnsweredQuestionsResponse(
+        answers=[
+            AnsweredQuestionItem(
+                agent_id=answer.agent_id,
+                question=answer.question,
+                answer=answer.answer,
+                created_at=answer.created_at,
+            )
+            for answer in answers
+        ]
+    )

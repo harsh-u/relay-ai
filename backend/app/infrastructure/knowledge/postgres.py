@@ -98,6 +98,7 @@ class PostgresAnsweredQuestionRepository(AnsweredQuestionRepository):
 
         return (
             AnsweredQuestion(
+                agent_id=model.agent_id,
                 question=model.question,
                 answer=model.answer,
                 created_at=model.created_at,
@@ -124,3 +125,36 @@ class PostgresAnsweredQuestionRepository(AnsweredQuestionRepository):
         await self._session.flush()
 
         return result.rowcount
+
+    async def list_all(
+        self,
+        tenant_id: str,
+        business_id: str,
+        agent_id: str | None,
+    ) -> list[AnsweredQuestion]:
+        conditions = [
+            AnsweredQuestionModel.tenant_id == UUID(tenant_id),
+            AnsweredQuestionModel.business_id == UUID(business_id),
+        ]
+
+        if agent_id is not None:
+            conditions.append(AnsweredQuestionModel.agent_id == agent_id)
+
+        statement = (
+            select(AnsweredQuestionModel)
+            .where(*conditions)
+            .order_by(AnsweredQuestionModel.created_at.desc())
+            .limit(200)
+        )
+
+        result = await self._session.execute(statement)
+
+        return [
+            AnsweredQuestion(
+                agent_id=model.agent_id,
+                question=model.question,
+                answer=model.answer,
+                created_at=model.created_at,
+            )
+            for model in result.scalars()
+        ]

@@ -35,6 +35,7 @@ class InMemoryAnsweredQuestionRepository(AnsweredQuestionRepository):
 
             if cosine_similarity(embedding, entry.embedding) >= dedup_similarity_threshold:
                 entry.answered_question = AnsweredQuestion(
+                    agent_id=agent_id,
                     question=question,
                     answer=answer,
                     created_at=datetime.now(UTC),
@@ -46,6 +47,7 @@ class InMemoryAnsweredQuestionRepository(AnsweredQuestionRepository):
             _Entry(
                 agent_id=agent_id,
                 answered_question=AnsweredQuestion(
+                    agent_id=agent_id,
                     question=question,
                     answer=answer,
                     created_at=datetime.now(UTC),
@@ -99,3 +101,19 @@ class InMemoryAnsweredQuestionRepository(AnsweredQuestionRepository):
         self._entries[key] = remaining
 
         return deleted
+
+    async def list_all(
+        self,
+        tenant_id: str,
+        business_id: str,
+        agent_id: str | None,
+    ) -> list[AnsweredQuestion]:
+        entries = self._entries.get((tenant_id, business_id), [])
+
+        matching = [
+            entry.answered_question
+            for entry in entries
+            if agent_id is None or entry.agent_id == agent_id
+        ]
+
+        return sorted(matching, key=lambda question: question.created_at, reverse=True)

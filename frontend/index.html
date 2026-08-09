@@ -1,0 +1,958 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="data:," />
+<title>RelayAI Test Panel</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --border: #e1e4e8;
+    --text: #1c2128;
+    --muted: #6b7280;
+    --accent: #4f46e5;
+    --accent-hover: #4338ca;
+    --danger: #dc2626;
+    --danger-hover: #b91c1c;
+    --respond: #059669;
+    --fallback: #d97706;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    padding: 12px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header h1 {
+    font-size: 16px;
+    margin: 0;
+    font-weight: 600;
+  }
+  header .sub {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .layout {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+  aside {
+    width: 260px;
+    border-right: 1px solid var(--border);
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    gap: 12px;
+    overflow-y: auto;
+  }
+  aside h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 0;
+  }
+  .new-company {
+    display: flex;
+    gap: 6px;
+  }
+  .new-company input {
+    flex: 1;
+    min-width: 0;
+  }
+  .company-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .company-item {
+    padding: 8px 10px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    border: 1px solid transparent;
+    font-size: 14px;
+  }
+  .company-item:hover { background: #f0f1f5; }
+  .company-item.active {
+    background: #eef2ff;
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .company-item .meta {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+  .company-item.active .meta { color: var(--accent); opacity: 0.8; }
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .empty-state {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 14px;
+    text-align: center;
+    padding: 40px;
+  }
+  nav.tabs {
+    display: flex;
+    gap: 4px;
+    padding: 10px 20px 0;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  nav.tabs button {
+    background: none;
+    border: none;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  nav.tabs button.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .tab-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: none;
+  }
+  .tab-content.active { display: flex; flex-direction: column; gap: 16px; }
+  .company-header {
+    padding: 14px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  .company-header .name { font-size: 15px; font-weight: 600; }
+  .company-header .ids {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    margin-top: 2px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .card h3 {
+    margin: 0 0 12px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  label {
+    font-size: 12px;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 4px;
+  }
+  input, select, textarea {
+    font-size: 13px;
+    padding: 7px 9px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--text);
+    font-family: inherit;
+  }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  button {
+    font-size: 13px;
+    padding: 7px 14px;
+    border-radius: 6px;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  button:hover { background: var(--accent-hover); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  button.secondary { background: #fff; color: var(--text); border: 1px solid var(--border); }
+  button.secondary:hover { background: #f4f5f7; }
+  button.danger { background: var(--danger); }
+  button.danger:hover { background: var(--danger-hover); }
+  .row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field.grow { flex: 1; min-width: 160px; }
+  .agent-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .agent-bar .field { flex-direction: row; align-items: center; gap: 6px; }
+  .agent-bar label { margin: 0; }
+  .agent-bar input { width: 140px; }
+
+  /* Chat tab */
+  #chat-tab { padding: 0; }
+  .chat-toolbar {
+    padding: 12px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .chat-log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .bubble {
+    max-width: 70%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .bubble.user {
+    align-self: flex-end;
+    background: var(--accent);
+    color: #fff;
+    border-bottom-right-radius: 2px;
+  }
+  .bubble.assistant {
+    align-self: flex-start;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 2px;
+  }
+  .bubble.system {
+    align-self: center;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    color: #92400e;
+    font-size: 13px;
+    max-width: 85%;
+  }
+  .bubble .tag {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #eef2ff;
+    color: var(--accent);
+  }
+  .bubble.assistant.fallback-answer .tag { background: #fff7ed; color: var(--fallback); }
+  .fallback-reply {
+    align-self: center;
+    background: #fff;
+    border: 1px dashed var(--fallback);
+    border-radius: var(--radius);
+    padding: 12px;
+    max-width: 85%;
+    width: 85%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .fallback-reply .hint { font-size: 12px; color: var(--fallback); font-weight: 600; }
+  .fallback-reply textarea { width: 100%; resize: vertical; min-height: 50px; }
+  .chat-input {
+    display: flex;
+    gap: 8px;
+    padding: 14px 20px;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+  }
+  .chat-input input { flex: 1; font-size: 14px; padding: 10px 12px; }
+
+  /* Cache/patterns tables */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; }
+  td.muted { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .stat-grid { display: flex; gap: 12px; flex-wrap: wrap; }
+  .stat {
+    flex: 1;
+    min-width: 140px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+  }
+  .stat .value { font-size: 24px; font-weight: 700; }
+  .stat .label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; font-size: 13px; margin-bottom: 6px; }
+  .bar-row .name { width: 220px; flex-shrink: 0; }
+  .bar-row .bar-bg { flex: 1; height: 8px; background: #eef2ff; border-radius: 4px; overflow: hidden; }
+  .bar-row .bar-fill { height: 100%; background: var(--accent); }
+  .bar-row .count { width: 40px; text-align: right; color: var(--muted); }
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--text);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+    z-index: 100;
+  }
+  .toast.show { opacity: 1; }
+  .toast.error { background: var(--danger); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>RelayAI Test Panel</h1>
+  <span class="sub">Create test companies and exercise every feature against the real API.</span>
+</header>
+
+<div class="layout">
+  <aside>
+    <h2>Companies</h2>
+    <form class="new-company" id="new-company-form">
+      <input type="text" id="new-company-name" aria-label="New company name" placeholder="New company name" required />
+      <button type="submit">Add</button>
+    </form>
+    <div class="company-list" id="company-list"></div>
+  </aside>
+
+  <main>
+    <div id="empty-state" class="empty-state">
+      Create or select a company on the left to start testing.
+    </div>
+
+    <div id="company-view" style="display:none; flex:1; display:flex; flex-direction:column; min-height:0;">
+      <div class="company-header">
+        <div class="name" id="company-name"></div>
+        <div class="ids" id="company-ids"></div>
+      </div>
+
+      <nav class="tabs">
+        <button data-tab="chat" class="active">Chat Tester</button>
+        <button data-tab="settings">Agent Settings</button>
+        <button data-tab="patterns">Intent Patterns</button>
+        <button data-tab="cache">Knowledge Cache</button>
+        <button data-tab="analytics">Analytics</button>
+      </nav>
+
+      <!-- Chat tab -->
+      <section id="chat-tab" class="tab-content active" style="flex:1; min-height:0;">
+        <div class="chat-toolbar">
+          <div class="agent-bar">
+            <div class="field">
+              <label for="agent-id">Agent ID</label>
+              <input type="text" id="agent-id" value="default" />
+            </div>
+            <span id="conversation-id-label"></span>
+          </div>
+          <button class="secondary" id="new-conversation-btn">New conversation</button>
+        </div>
+        <div class="chat-log" id="chat-log"></div>
+        <form class="chat-input" id="chat-form">
+          <input type="text" id="chat-text" aria-label="Message to send" placeholder="Type what the caller would say..." autocomplete="off" required />
+          <button type="submit">Send</button>
+        </form>
+      </section>
+
+      <!-- Settings tab -->
+      <section id="settings-tab" class="tab-content">
+        <div class="card">
+          <h3>Knowledge Scope &amp; TTL</h3>
+          <div class="row">
+            <div class="field">
+              <label for="settings-scope">Knowledge scope</label>
+              <select id="settings-scope">
+                <option value="shared">shared</option>
+                <option value="isolated">isolated</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="settings-ttl">TTL (days)</label>
+              <input type="number" id="settings-ttl" min="0" style="width:100px" />
+            </div>
+            <button id="settings-save-btn">Save</button>
+            <button class="secondary" id="settings-refresh-btn">Refresh</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Patterns tab -->
+      <section id="patterns-tab" class="tab-content">
+        <div class="card">
+          <h3>Add a custom trigger phrase</h3>
+          <div class="row">
+            <div class="field">
+              <label for="pattern-intent">Intent</label>
+              <select id="pattern-intent">
+                <option value="greeting">greeting</option>
+                <option value="repeat_request">repeat_request</option>
+              </select>
+            </div>
+            <div class="field grow">
+              <label for="pattern-text">Phrase</label>
+              <input type="text" id="pattern-text" placeholder="e.g. yo" />
+            </div>
+            <button id="pattern-add-btn">Add</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>This business's custom patterns</h3>
+          <table>
+            <thead><tr><th>Intent</th><th>Pattern</th><th></th></tr></thead>
+            <tbody id="patterns-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Cache tab -->
+      <section id="cache-tab" class="tab-content">
+        <div class="card">
+          <h3>Seed a known answer</h3>
+          <div class="row">
+            <div class="field grow">
+              <label for="cache-question">Question</label>
+              <input type="text" id="cache-question" placeholder="Do you accept Delta Dental insurance?" />
+            </div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <div class="field grow">
+              <label for="cache-answer">Answer</label>
+              <input type="text" id="cache-answer" placeholder="Yes, we're in-network with Delta Dental PPO." />
+            </div>
+            <button id="cache-seed-btn">Seed cache</button>
+          </div>
+          <p style="font-size:12px; color:var(--muted); margin: 8px 0 0;">
+            Seeded under the Agent ID set on the Chat Tester tab.
+          </p>
+        </div>
+        <div class="card">
+          <div class="row" style="justify-content: space-between;">
+            <h3 style="margin:0;">Cached answers (newest first, max 200)</h3>
+            <div class="row">
+              <button class="secondary" id="cache-refresh-btn">Refresh</button>
+              <button class="danger" id="cache-clear-agent-btn">Clear this agent</button>
+              <button class="danger" id="cache-clear-all-btn">Clear entire business</button>
+            </div>
+          </div>
+          <table>
+            <thead><tr><th>Agent</th><th>Question</th><th>Answer</th><th>Cached at</th></tr></thead>
+            <tbody id="cache-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Analytics tab -->
+      <section id="analytics-tab" class="tab-content">
+        <div class="row" style="justify-content: space-between;">
+          <h3 style="margin:0; text-transform:none; font-size:14px; color:var(--text);">Decision summary</h3>
+          <button class="secondary" id="analytics-refresh-btn">Refresh</button>
+        </div>
+        <div class="stat-grid">
+          <div class="stat"><div class="value" id="stat-total">-</div><div class="label">Total requests</div></div>
+          <div class="stat"><div class="value" id="stat-respond">-</div><div class="label">Answered locally</div></div>
+          <div class="stat"><div class="value" id="stat-fallback">-</div><div class="label">Fell back to LLM</div></div>
+          <div class="stat"><div class="value" id="stat-rate">-</div><div class="label">Avoided-LLM rate</div></div>
+        </div>
+        <div class="card">
+          <h3>Breakdown by mechanism</h3>
+          <div id="analytics-breakdown"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  const state = {
+    companies: [],
+    company: null,
+    conversationId: null,
+  };
+
+  const el = (id) => document.getElementById(id);
+
+  function toast(message, isError) {
+    const t = el("toast");
+    t.textContent = message;
+    t.className = "toast show" + (isError ? " error" : "");
+    setTimeout(() => { t.className = "toast"; }, 2500);
+  }
+
+  async function api(path, options = {}) {
+    const response = await fetch(path, {
+      ...options,
+      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    });
+    if (!response.ok) {
+      let detail = response.statusText;
+      try { detail = (await response.json()).detail || detail; } catch (_) { /* ignore */ }
+      throw new Error(detail);
+    }
+    if (response.status === 204) return null;
+    return response.json();
+  }
+
+  function qs(params) {
+    return "?" + new URLSearchParams(params).toString();
+  }
+
+  function newConversationId() {
+    return "panel-" + Math.random().toString(36).slice(2) + "-" + Date.now();
+  }
+
+  function agentId() {
+    return el("agent-id").value.trim() || "default";
+  }
+
+  // ---------- Companies ----------
+
+  async function loadCompanies() {
+    const data = await api("/v1/companies");
+    state.companies = data.companies;
+    renderCompanyList();
+  }
+
+  function renderCompanyList() {
+    const list = el("company-list");
+    list.innerHTML = "";
+    for (const company of state.companies) {
+      const item = document.createElement("div");
+      item.className = "company-item" + (state.company && state.company.id === company.id ? " active" : "");
+      item.innerHTML = `${escapeHtml(company.name)}<div class="meta">${company.knowledge_scope} · ttl ${company.knowledge_ttl_days}d</div>`;
+      item.addEventListener("click", () => selectCompany(company));
+      list.appendChild(item);
+    }
+  }
+
+  function selectCompany(company) {
+    state.company = company;
+    state.conversationId = newConversationId();
+    el("empty-state").style.display = "none";
+    el("company-view").style.display = "flex";
+    el("company-name").textContent = company.name;
+    el("company-ids").textContent = `business_id: ${company.id}  |  tenant_id: ${company.tenant_id}`;
+    el("chat-log").innerHTML = "";
+    updateConversationLabel();
+    renderCompanyList();
+    refreshActiveTab();
+  }
+
+  function escapeHtml(value) {
+    const div = document.createElement("div");
+    div.textContent = value;
+    return div.innerHTML;
+  }
+
+  el("new-company-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const nameInput = el("new-company-name");
+    const name = nameInput.value.trim();
+    if (!name) return;
+    try {
+      const company = await api("/v1/companies", { method: "POST", body: JSON.stringify({ name }) });
+      nameInput.value = "";
+      await loadCompanies();
+      const created = state.companies.find((c) => c.id === company.id);
+      selectCompany(created || company);
+      toast(`Created "${company.name}"`);
+    } catch (err) {
+      toast("Failed to create company: " + err.message, true);
+    }
+  });
+
+  // ---------- Tabs ----------
+
+  document.querySelectorAll("nav.tabs button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("nav.tabs button").forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach((s) => s.classList.remove("active"));
+      btn.classList.add("active");
+      el(btn.dataset.tab + "-tab").classList.add("active");
+      refreshActiveTab();
+    });
+  });
+
+  function activeTabName() {
+    return document.querySelector("nav.tabs button.active").dataset.tab;
+  }
+
+  function refreshActiveTab() {
+    if (!state.company) return;
+    const tab = activeTabName();
+    if (tab === "settings") loadSettings();
+    if (tab === "patterns") loadPatterns();
+    if (tab === "cache") loadCache();
+    if (tab === "analytics") loadAnalytics();
+  }
+
+  // ---------- Chat ----------
+
+  function updateConversationLabel() {
+    el("conversation-id-label").textContent = "conversation: " + state.conversationId;
+  }
+
+  el("new-conversation-btn").addEventListener("click", () => {
+    state.conversationId = newConversationId();
+    updateConversationLabel();
+    el("chat-log").innerHTML = "";
+    toast("Started a new conversation");
+  });
+
+  function appendBubble(role, html, extraClass) {
+    const log = el("chat-log");
+    const bubble = document.createElement("div");
+    bubble.className = "bubble " + role + (extraClass ? " " + extraClass : "");
+    bubble.innerHTML = html;
+    log.appendChild(bubble);
+    log.scrollTop = log.scrollHeight;
+    return bubble;
+  }
+
+  el("chat-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = el("chat-text");
+    const text = input.value.trim();
+    if (!text || !state.company) return;
+    input.value = "";
+    appendBubble("user", escapeHtml(text));
+
+    try {
+      const result = await api("/v1/inference", {
+        method: "POST",
+        body: JSON.stringify({
+          tenant_id: state.company.tenant_id,
+          business_id: state.company.id,
+          conversation_id: state.conversationId,
+          agent_id: agentId(),
+          text,
+        }),
+      });
+
+      if (result.action === "respond") {
+        const tag = [result.source, result.intent].filter(Boolean).join(" · ");
+        appendBubble("assistant", `${escapeHtml(result.text)}<div class="tag">${escapeHtml(tag)}</div>`);
+      } else {
+        appendFallbackPrompt(text);
+      }
+    } catch (err) {
+      appendBubble("system", "Error: " + escapeHtml(err.message));
+    }
+  });
+
+  let fallbackReplyCounter = 0;
+
+  function appendFallbackPrompt(question) {
+    appendBubble("system", "RelayAI has no local answer for this - your LLM would need to respond now.");
+
+    const log = el("chat-log");
+    const wrap = document.createElement("div");
+    wrap.className = "fallback-reply";
+    const textareaId = "fallback-answer-" + fallbackReplyCounter++;
+    wrap.innerHTML = `
+      <label class="hint" for="${textareaId}">Simulate your LLM's answer</label>
+      <textarea id="${textareaId}" name="fallback-answer" placeholder="What would your LLM say to: &quot;${escapeHtml(question)}&quot;?"></textarea>
+      <div class="row" style="justify-content:flex-end;">
+        <button type="button">Send as LLM answer</button>
+      </div>
+    `;
+    const textarea = wrap.querySelector("textarea");
+    const button = wrap.querySelector("button");
+
+    button.addEventListener("click", async () => {
+      const answer = textarea.value.trim();
+      if (!answer) return;
+      button.disabled = true;
+      try {
+        await api(`/v1/conversations/${encodeURIComponent(state.conversationId)}/messages`, {
+          method: "POST",
+          body: JSON.stringify({
+            tenant_id: state.company.tenant_id,
+            business_id: state.company.id,
+            agent_id: agentId(),
+            text: answer,
+          }),
+        });
+        wrap.remove();
+        appendBubble(
+          "assistant",
+          `${escapeHtml(answer)}<div class="tag">fallback · your LLM</div>`,
+          "fallback-answer"
+        );
+        toast("Reported back - now cached for future similar questions");
+      } catch (err) {
+        toast("Failed to report answer: " + err.message, true);
+        button.disabled = false;
+      }
+    });
+
+    log.appendChild(wrap);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  // ---------- Settings ----------
+
+  async function loadSettings() {
+    try {
+      const settings = await api(
+        "/v1/knowledge/settings" + qs({ tenant_id: state.company.tenant_id, business_id: state.company.id })
+      );
+      el("settings-scope").value = settings.knowledge_scope;
+      el("settings-ttl").value = settings.knowledge_ttl_days;
+    } catch (err) {
+      toast("Failed to load settings: " + err.message, true);
+    }
+  }
+
+  el("settings-refresh-btn").addEventListener("click", loadSettings);
+
+  el("settings-save-btn").addEventListener("click", async () => {
+    try {
+      const settings = await api("/v1/knowledge/settings", {
+        method: "PATCH",
+        body: JSON.stringify({
+          tenant_id: state.company.tenant_id,
+          business_id: state.company.id,
+          knowledge_scope: el("settings-scope").value,
+          knowledge_ttl_days: Number(el("settings-ttl").value),
+        }),
+      });
+      el("settings-scope").value = settings.knowledge_scope;
+      el("settings-ttl").value = settings.knowledge_ttl_days;
+      state.company.knowledge_scope = settings.knowledge_scope;
+      state.company.knowledge_ttl_days = settings.knowledge_ttl_days;
+      renderCompanyList();
+      toast("Settings saved");
+    } catch (err) {
+      toast("Failed to save settings: " + err.message, true);
+    }
+  });
+
+  // ---------- Patterns ----------
+
+  async function loadPatterns() {
+    try {
+      const data = await api(
+        "/v1/patterns" + qs({ tenant_id: state.company.tenant_id, business_id: state.company.id })
+      );
+      const body = el("patterns-table-body");
+      body.innerHTML = "";
+      for (const p of data.patterns) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${escapeHtml(p.intent)}</td><td>${escapeHtml(p.pattern)}</td><td></td>`;
+        const removeBtn = document.createElement("button");
+        removeBtn.className = "danger";
+        removeBtn.textContent = "Remove";
+        removeBtn.addEventListener("click", async () => {
+          try {
+            await api(
+              "/v1/patterns" +
+                qs({
+                  tenant_id: state.company.tenant_id,
+                  business_id: state.company.id,
+                  intent: p.intent,
+                  pattern: p.pattern,
+                }),
+              { method: "DELETE" }
+            );
+            loadPatterns();
+          } catch (err) {
+            toast("Failed to remove pattern: " + err.message, true);
+          }
+        });
+        tr.lastElementChild.appendChild(removeBtn);
+        body.appendChild(tr);
+      }
+      if (data.patterns.length === 0) {
+        body.innerHTML = '<tr><td colspan="3" class="muted">No custom patterns yet.</td></tr>';
+      }
+    } catch (err) {
+      toast("Failed to load patterns: " + err.message, true);
+    }
+  }
+
+  el("pattern-add-btn").addEventListener("click", async () => {
+    const pattern = el("pattern-text").value.trim();
+    if (!pattern) return;
+    try {
+      await api("/v1/patterns", {
+        method: "POST",
+        body: JSON.stringify({
+          tenant_id: state.company.tenant_id,
+          business_id: state.company.id,
+          intent: el("pattern-intent").value,
+          pattern,
+        }),
+      });
+      el("pattern-text").value = "";
+      loadPatterns();
+      toast("Pattern added");
+    } catch (err) {
+      toast("Failed to add pattern: " + err.message, true);
+    }
+  });
+
+  // ---------- Knowledge cache ----------
+
+  async function loadCache() {
+    try {
+      const data = await api(
+        "/v1/knowledge/answers" + qs({ tenant_id: state.company.tenant_id, business_id: state.company.id })
+      );
+      const body = el("cache-table-body");
+      body.innerHTML = "";
+      for (const a of data.answers) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="muted">${escapeHtml(a.agent_id)}</td>
+          <td>${escapeHtml(a.question)}</td>
+          <td>${escapeHtml(a.answer)}</td>
+          <td class="muted">${new Date(a.created_at).toLocaleString()}</td>
+        `;
+        body.appendChild(tr);
+      }
+      if (data.answers.length === 0) {
+        body.innerHTML = '<tr><td colspan="4" class="muted">Cache is empty.</td></tr>';
+      }
+    } catch (err) {
+      toast("Failed to load cache: " + err.message, true);
+    }
+  }
+
+  el("cache-refresh-btn").addEventListener("click", loadCache);
+
+  el("cache-seed-btn").addEventListener("click", async () => {
+    const question = el("cache-question").value.trim();
+    const answer = el("cache-answer").value.trim();
+    if (!question || !answer) return;
+    try {
+      await api("/v1/knowledge/answers", {
+        method: "POST",
+        body: JSON.stringify({
+          tenant_id: state.company.tenant_id,
+          business_id: state.company.id,
+          agent_id: agentId(),
+          question,
+          answer,
+        }),
+      });
+      el("cache-question").value = "";
+      el("cache-answer").value = "";
+      loadCache();
+      toast("Answer seeded - reusable immediately");
+    } catch (err) {
+      toast("Failed to seed answer: " + err.message, true);
+    }
+  });
+
+  el("cache-clear-agent-btn").addEventListener("click", async () => {
+    if (!confirm(`Clear the cache for agent "${agentId()}" only? This can't be undone.`)) return;
+    try {
+      const result = await api(
+        "/v1/knowledge/cache" +
+          qs({ tenant_id: state.company.tenant_id, business_id: state.company.id, agent_id: agentId() }),
+        { method: "DELETE" }
+      );
+      loadCache();
+      toast(`Deleted ${result.deleted} cached answer(s) for this agent`);
+    } catch (err) {
+      toast("Failed to clear cache: " + err.message, true);
+    }
+  });
+
+  el("cache-clear-all-btn").addEventListener("click", async () => {
+    if (!confirm("Clear the ENTIRE business's cache - every agent, not just this one? This can't be undone.")) return;
+    try {
+      const result = await api(
+        "/v1/knowledge/cache" + qs({ tenant_id: state.company.tenant_id, business_id: state.company.id }),
+        { method: "DELETE" }
+      );
+      loadCache();
+      toast(`Deleted ${result.deleted} cached answer(s) for the whole business`);
+    } catch (err) {
+      toast("Failed to clear cache: " + err.message, true);
+    }
+  });
+
+  // ---------- Analytics ----------
+
+  async function loadAnalytics() {
+    try {
+      const summary = await api(
+        "/v1/analytics/summary" + qs({ tenant_id: state.company.tenant_id, business_id: state.company.id })
+      );
+      el("stat-total").textContent = summary.total;
+      el("stat-respond").textContent = summary.respond_count;
+      el("stat-fallback").textContent = summary.fallback_count;
+      el("stat-rate").textContent = Math.round(summary.avoided_llm_rate * 100) + "%";
+
+      const breakdown = el("analytics-breakdown");
+      breakdown.innerHTML = "";
+      const entries = Object.entries(summary.respond_by_source);
+      const max = Math.max(1, ...entries.map(([, count]) => count));
+      if (entries.length === 0) {
+        breakdown.innerHTML = '<p class="muted" style="font-size:13px;">No local responses recorded yet.</p>';
+      }
+      for (const [source, count] of entries) {
+        const row = document.createElement("div");
+        row.className = "bar-row";
+        row.innerHTML = `
+          <div class="name">${escapeHtml(source)}</div>
+          <div class="bar-bg"><div class="bar-fill" style="width:${(count / max) * 100}%"></div></div>
+          <div class="count">${count}</div>
+        `;
+        breakdown.appendChild(row);
+      }
+    } catch (err) {
+      toast("Failed to load analytics: " + err.message, true);
+    }
+  }
+
+  el("analytics-refresh-btn").addEventListener("click", loadAnalytics);
+
+  // ---------- Boot ----------
+
+  loadCompanies().catch((err) => toast("Failed to load companies: " + err.message, true));
+})();
+</script>
+</body>
+</html>

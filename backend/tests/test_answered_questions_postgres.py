@@ -410,3 +410,71 @@ async def test_dedup_does_not_cross_agents(db_session: AsyncSession) -> None:
     )
 
     assert await _row_count(db_session, tenant_id, business_id) == 2
+
+
+async def test_list_all_returns_newest_first(db_session: AsyncSession) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresAnsweredQuestionRepository(db_session)
+
+    await repository.save(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-1",
+        question="Do you accept Delta Dental insurance?",
+        answer="Yes.",
+        embedding=_vector(1.0, 0.0, 0.0),
+        dedup_similarity_threshold=0.75,
+    )
+    await repository.save(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-1",
+        question="What time do you close on Saturdays?",
+        answer="2pm.",
+        embedding=_vector(0.0, 1.0, 0.0),
+        dedup_similarity_threshold=0.75,
+    )
+
+    answers = await repository.list_all(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id=None,
+    )
+
+    assert [answer.question for answer in answers] == [
+        "What time do you close on Saturdays?",
+        "Do you accept Delta Dental insurance?",
+    ]
+
+
+async def test_list_all_filters_by_agent_when_given(db_session: AsyncSession) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresAnsweredQuestionRepository(db_session)
+
+    await repository.save(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-a",
+        question="Do you accept Delta Dental insurance?",
+        answer="Yes.",
+        embedding=_vector(1.0, 0.0, 0.0),
+        dedup_similarity_threshold=0.75,
+    )
+    await repository.save(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-b",
+        question="What time do you close on Saturdays?",
+        answer="2pm.",
+        embedding=_vector(0.0, 1.0, 0.0),
+        dedup_similarity_threshold=0.75,
+    )
+
+    answers = await repository.list_all(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-a",
+    )
+
+    assert len(answers) == 1
+    assert answers[0].question == "Do you accept Delta Dental insurance?"

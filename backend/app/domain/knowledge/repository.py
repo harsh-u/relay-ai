@@ -60,3 +60,14 @@ class AnsweredQuestionRepository(ABC):
         """Delete cached questions for this business (or just one agent's,
         if given). Returns the number of rows deleted."""
         raise NotImplementedError
+
+    @abstractmethod
+    async def list_all(
+        self,
+        tenant_id: str,
+        business_id: str,
+        agent_id: str | None,
+    ) -> list[AnsweredQuestion]:
+        """List cached questions for this business (or just one agent's, if
+        given), newest first - for inspecting the cache, not for matching."""
+        raise NotImplementedError

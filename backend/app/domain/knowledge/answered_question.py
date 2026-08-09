@@ -6,6 +6,7 @@ from datetime import datetime
 class AnsweredQuestion:
     """A question a business has already had answered, available for reuse."""
 
+    agent_id: str
     question: str
     answer: str
     created_at: datetime

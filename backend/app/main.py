@@ -1,11 +1,17 @@
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from backend.app.api.analytics import router as analytics_router
+from backend.app.api.companies import router as companies_router
 from backend.app.api.health import router as health_router
 from backend.app.api.inference import router as inference_router
 from backend.app.api.knowledge import router as knowledge_router
 from backend.app.api.patterns import router as patterns_router
 from backend.app.config.settings import get_settings
+
+FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
 
 def create_application() -> FastAPI:
@@ -23,6 +29,14 @@ def create_application() -> FastAPI:
     application.include_router(analytics_router)
     application.include_router(knowledge_router)
     application.include_router(patterns_router)
+    application.include_router(companies_router)
+
+    if FRONTEND_DIR.is_dir():
+        application.mount(
+            "/panel",
+            StaticFiles(directory=FRONTEND_DIR, html=True),
+            name="panel",
+        )
 
     return application
 
