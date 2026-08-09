@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.domain.matching.builtin_patterns import BUILTIN_PATTERNS
@@ -44,3 +44,64 @@ class PostgresIntentPatternRepository(IntentPatternRepository):
             merged[intent] = tuple(patterns)
 
         return merged
+
+    async def add_pattern(
+        self,
+        tenant_id: str,
+        business_id: str,
+        intent: Intent,
+        pattern: str,
+    ) -> None:
+        existing_statement = select(IntentPatternModel).where(
+            IntentPatternModel.tenant_id == UUID(tenant_id),
+            IntentPatternModel.business_id == UUID(business_id),
+            IntentPatternModel.intent == intent.value,
+            IntentPatternModel.pattern == pattern,
+        )
+        existing = await self._session.execute(existing_statement)
+
+        if existing.scalar_one_or_none() is not None:
+            return
+
+        row = IntentPatternModel(
+            tenant_id=UUID(tenant_id),
+            business_id=UUID(business_id),
+            intent=intent.value,
+            pattern=pattern,
+        )
+        self._session.add(row)
+        await self._session.flush()
+
+    async def remove_pattern(
+        self,
+        tenant_id: str,
+        business_id: str,
+        intent: Intent,
+        pattern: str,
+    ) -> bool:
+        statement = delete(IntentPatternModel).where(
+            IntentPatternModel.tenant_id == UUID(tenant_id),
+            IntentPatternModel.business_id == UUID(business_id),
+            IntentPatternModel.intent == intent.value,
+            IntentPatternModel.pattern == pattern,
+        )
+
+        result = await self._session.execute(statement)
+        await self._session.flush()
+
+        return result.rowcount > 0
+
+    async def list_custom_patterns(
+        self,
+        tenant_id: str,
+        business_id: str,
+    ) -> list[tuple[Intent, str]]:
+        statement = select(IntentPatternModel).where(
+            IntentPatternModel.tenant_id == UUID(tenant_id),
+            IntentPatternModel.business_id == UUID(business_id),
+        )
+
+        result = await self._session.execute(statement)
+        rows = result.scalars().all()
+
+        return [(Intent(row.intent), row.pattern) for row in rows]

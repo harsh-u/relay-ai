@@ -4,6 +4,7 @@ from backend.app.api.analytics import router as analytics_router
 from backend.app.api.health import router as health_router
 from backend.app.api.inference import router as inference_router
 from backend.app.api.knowledge import router as knowledge_router
+from backend.app.api.patterns import router as patterns_router
 from backend.app.config.settings import get_settings
 
 
@@ -21,6 +22,7 @@ def create_application() -> FastAPI:
     application.include_router(inference_router)
     application.include_router(analytics_router)
     application.include_router(knowledge_router)
+    application.include_router(patterns_router)
 
     return application
 

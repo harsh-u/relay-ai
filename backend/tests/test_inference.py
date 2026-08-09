@@ -349,11 +349,11 @@ def test_llm_context_is_isolated_between_conversations(client: TestClient) -> No
     }
 
 
-def test_business_specific_custom_pattern_is_matched(
+async def test_business_specific_custom_pattern_is_matched(
     client: TestClient,
     pattern_repository: InMemoryIntentPatternRepository,
 ) -> None:
-    pattern_repository.add_custom_pattern(
+    await pattern_repository.add_pattern(
         tenant_id=TENANT_ID,
         business_id=BUSINESS_ID,
         intent=Intent.GREETING,
@@ -375,11 +375,11 @@ def test_business_specific_custom_pattern_is_matched(
     assert response.json()["intent"] == "greeting"
 
 
-def test_business_specific_custom_pattern_is_isolated_to_its_business(
+async def test_business_specific_custom_pattern_is_isolated_to_its_business(
     client: TestClient,
     pattern_repository: InMemoryIntentPatternRepository,
 ) -> None:
-    pattern_repository.add_custom_pattern(
+    await pattern_repository.add_pattern(
         tenant_id=TENANT_ID,
         business_id=BUSINESS_ID,
         intent=Intent.GREETING,

@@ -13,16 +13,6 @@ class InMemoryIntentPatternRepository(IntentPatternRepository):
     def __init__(self) -> None:
         self._custom_patterns: dict[tuple[str, str], dict[Intent, list[str]]] = {}
 
-    def add_custom_pattern(
-        self,
-        tenant_id: str,
-        business_id: str,
-        intent: Intent,
-        pattern: str,
-    ) -> None:
-        scoped = self._custom_patterns.setdefault((tenant_id, business_id), {})
-        scoped.setdefault(intent, []).append(pattern)
-
     async def get_patterns(
         self,
         tenant_id: str,
@@ -37,3 +27,41 @@ class InMemoryIntentPatternRepository(IntentPatternRepository):
             merged[intent] = tuple(patterns)
 
         return merged
+
+    async def add_pattern(
+        self,
+        tenant_id: str,
+        business_id: str,
+        intent: Intent,
+        pattern: str,
+    ) -> None:
+        scoped = self._custom_patterns.setdefault((tenant_id, business_id), {})
+        patterns = scoped.setdefault(intent, [])
+
+        if pattern not in patterns:
+            patterns.append(pattern)
+
+    async def remove_pattern(
+        self,
+        tenant_id: str,
+        business_id: str,
+        intent: Intent,
+        pattern: str,
+    ) -> bool:
+        scoped = self._custom_patterns.get((tenant_id, business_id), {})
+        patterns = scoped.get(intent, [])
+
+        if pattern in patterns:
+            patterns.remove(pattern)
+            return True
+
+        return False
+
+    async def list_custom_patterns(
+        self,
+        tenant_id: str,
+        business_id: str,
+    ) -> list[tuple[Intent, str]]:
+        scoped = self._custom_patterns.get((tenant_id, business_id), {})
+
+        return [(intent, pattern) for intent, patterns in scoped.items() for pattern in patterns]

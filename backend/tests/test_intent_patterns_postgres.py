@@ -98,3 +98,77 @@ async def test_custom_pattern_is_isolated_to_its_tenant(db_session: AsyncSession
     patterns_for_b = await repository.get_patterns(tenant_id=tenant_id_b, business_id=business_id)
 
     assert "yo" not in patterns_for_b[Intent.GREETING]
+
+
+async def test_add_pattern_then_get_patterns_includes_it(db_session: AsyncSession) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresIntentPatternRepository(db_session)
+
+    await repository.add_pattern(
+        tenant_id=tenant_id, business_id=business_id, intent=Intent.GREETING, pattern="yo"
+    )
+
+    patterns = await repository.get_patterns(tenant_id=tenant_id, business_id=business_id)
+
+    assert "yo" in patterns[Intent.GREETING]
+
+
+async def test_add_pattern_twice_is_idempotent(db_session: AsyncSession) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresIntentPatternRepository(db_session)
+
+    await repository.add_pattern(
+        tenant_id=tenant_id, business_id=business_id, intent=Intent.GREETING, pattern="yo"
+    )
+    await repository.add_pattern(
+        tenant_id=tenant_id, business_id=business_id, intent=Intent.GREETING, pattern="yo"
+    )
+
+    custom = await repository.list_custom_patterns(tenant_id=tenant_id, business_id=business_id)
+
+    assert custom == [(Intent.GREETING, "yo")]
+
+
+async def test_list_custom_patterns_excludes_builtin_patterns(db_session: AsyncSession) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresIntentPatternRepository(db_session)
+
+    await repository.add_pattern(
+        tenant_id=tenant_id, business_id=business_id, intent=Intent.GREETING, pattern="yo"
+    )
+
+    custom = await repository.list_custom_patterns(tenant_id=tenant_id, business_id=business_id)
+
+    assert custom == [(Intent.GREETING, "yo")]
+    assert "hi" not in [pattern for _, pattern in custom]
+
+
+async def test_remove_pattern_deletes_it_and_returns_true(db_session: AsyncSession) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresIntentPatternRepository(db_session)
+
+    await repository.add_pattern(
+        tenant_id=tenant_id, business_id=business_id, intent=Intent.GREETING, pattern="yo"
+    )
+
+    removed = await repository.remove_pattern(
+        tenant_id=tenant_id, business_id=business_id, intent=Intent.GREETING, pattern="yo"
+    )
+
+    assert removed is True
+
+    patterns = await repository.get_patterns(tenant_id=tenant_id, business_id=business_id)
+    assert "yo" not in patterns[Intent.GREETING]
+
+
+async def test_remove_pattern_returns_false_when_nothing_matched(
+    db_session: AsyncSession,
+) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresIntentPatternRepository(db_session)
+
+    removed = await repository.remove_pattern(
+        tenant_id=tenant_id, business_id=business_id, intent=Intent.GREETING, pattern="never-added"
+    )
+
+    assert removed is False
