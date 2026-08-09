@@ -97,6 +97,7 @@ async def inference(
         text=result.text,
         source=result.source,
         intent=result.intent,
+        similarity=result.similarity,
     )
 
 

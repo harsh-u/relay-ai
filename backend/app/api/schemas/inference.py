@@ -63,3 +63,17 @@ class InferenceResponseBody(BaseModel):
         description="The recognized intent, if a builtin rule matched (e.g. 'greeting').",
         examples=["greeting"],
     )
+    similarity: float | None = Field(
+        default=None,
+        description=(
+            "Cosine similarity (0-1) to the closest cached knowledge-cache "
+            "question considered for this turn, for observability. Present "
+            "when source is 'knowledge:semantic_match' (it met the match "
+            "threshold) or when action is 'fallback' but a cached question "
+            "existed and came close without meeting it. None when no "
+            "cached questions existed to compare against, or when a "
+            "builtin rule / conversation recall answered before the "
+            "knowledge cache was ever consulted."
+        ),
+        examples=[0.812],
+    )

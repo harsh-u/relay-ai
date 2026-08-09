@@ -170,6 +170,9 @@ class InferenceService:
                     action=InferenceAction.RESPOND,
                     text=answered_question.answer,
                     source="knowledge:semantic_match",
+                    similarity=similarity,
                 )
+
+            return InferenceResponse(action=InferenceAction.FALLBACK, similarity=similarity)
 
         return InferenceResponse(action=InferenceAction.FALLBACK)

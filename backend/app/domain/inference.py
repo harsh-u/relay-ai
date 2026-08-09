@@ -28,3 +28,4 @@ class InferenceResponse:
     text: str | None = None
     source: str | None = None
     intent: Intent | None = None
+    similarity: float | None = None

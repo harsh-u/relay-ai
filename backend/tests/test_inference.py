@@ -27,6 +27,7 @@ def test_greeting_is_answered_without_llm(client: TestClient) -> None:
         "text": "Hello! How can I help you?",
         "source": "builtin:greeting",
         "intent": "greeting",
+        "similarity": None,
     }
 
 
@@ -47,6 +48,7 @@ def test_repeat_request_is_recognized(client: TestClient) -> None:
         "text": None,
         "source": None,
         "intent": "repeat_request",
+        "similarity": None,
     }
 
 
@@ -67,6 +69,7 @@ def test_repeat_request_variation_is_recognized(client: TestClient) -> None:
         "text": None,
         "source": None,
         "intent": "repeat_request",
+        "similarity": None,
     }
 
 
@@ -87,6 +90,7 @@ def test_unknown_request_falls_back(client: TestClient) -> None:
         "text": None,
         "source": None,
         "intent": None,
+        "similarity": None,
     }
 
 
@@ -107,6 +111,7 @@ def test_empty_request_falls_back(client: TestClient) -> None:
         "text": None,
         "source": None,
         "intent": None,
+        "similarity": None,
     }
 
 
@@ -152,6 +157,7 @@ def test_repeat_request_returns_last_assistant_response(client: TestClient) -> N
         "text": "Hello! How can I help you?",
         "source": "conversation:last_response",
         "intent": "repeat_request",
+        "similarity": None,
     }
 
 
@@ -172,6 +178,7 @@ def test_repeat_request_without_context_falls_back(client: TestClient) -> None:
         "text": None,
         "source": None,
         "intent": "repeat_request",
+        "similarity": None,
     }
 
 
@@ -279,6 +286,7 @@ def test_llm_response_can_be_used_for_repeat_request(client: TestClient) -> None
         "text": None,
         "source": None,
         "intent": None,
+        "similarity": None,
     }
 
     assistant_response = client.post(
@@ -312,6 +320,7 @@ def test_llm_response_can_be_used_for_repeat_request(client: TestClient) -> None
         "text": "Our refund policy allows refunds within 30 days.",
         "source": "conversation:last_response",
         "intent": "repeat_request",
+        "similarity": None,
     }
 
 
@@ -346,6 +355,7 @@ def test_llm_context_is_isolated_between_conversations(client: TestClient) -> No
         "text": None,
         "source": None,
         "intent": "repeat_request",
+        "similarity": None,
     }
 
 
@@ -455,6 +465,48 @@ def test_semantic_match_reuses_answer_for_rephrased_question(
         "text": answer,
         "source": "knowledge:semantic_match",
         "intent": None,
+        "similarity": 1.0,
+    }
+
+
+def test_fallback_reports_the_closest_cached_similarity_when_below_threshold(
+    client: TestClient,
+    embedding_provider: FakeEmbeddingProvider,
+) -> None:
+    """Even when nothing was close enough to answer from, the similarity to
+    the nearest cached question is still surfaced - useful for seeing how
+    close a near-miss actually was, instead of just "fallback"."""
+
+    original_question = "Do you accept Delta Dental insurance?"
+    near_miss_question = "Is my dental plan covered?"
+
+    embedding_provider.set_vector(original_question, [1.0, 0.0, 0.0])
+    embedding_provider.set_vector(near_miss_question, [0.6, 0.8, 0.0])
+
+    _ask_and_report_answer(
+        client,
+        "conversation-near-miss",
+        original_question,
+        "Yes, we're in-network with Delta Dental PPO.",
+    )
+
+    response = client.post(
+        "/v1/inference",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
+            "conversation_id": "conversation-near-miss",
+            "text": near_miss_question,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "action": "fallback",
+        "text": None,
+        "source": None,
+        "intent": None,
+        "similarity": 0.6,
     }
 
 
@@ -522,6 +574,7 @@ def test_semantic_match_reuses_answer_across_different_conversations(
         "text": answer,
         "source": "knowledge:semantic_match",
         "intent": None,
+        "similarity": 1.0,
     }
 
 

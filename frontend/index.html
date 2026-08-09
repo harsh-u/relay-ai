@@ -669,10 +669,14 @@
       });
 
       if (result.action === "respond") {
-        const tag = [result.source, result.intent].filter(Boolean).join(" · ");
+        const tagParts = [result.source, result.intent];
+        if (result.similarity !== null && result.similarity !== undefined) {
+          tagParts.push("similarity " + result.similarity.toFixed(3));
+        }
+        const tag = tagParts.filter(Boolean).join(" · ");
         appendBubble("assistant", `${escapeHtml(result.text)}<div class="tag">${escapeHtml(tag)}</div>`);
       } else {
-        appendFallbackPrompt(text);
+        appendFallbackPrompt(text, result.similarity);
       }
     } catch (err) {
       appendBubble("system", "Error: " + escapeHtml(err.message));
@@ -681,8 +685,14 @@
 
   let fallbackReplyCounter = 0;
 
-  function appendFallbackPrompt(question) {
-    appendBubble("system", "RelayAI has no local answer for this - your LLM would need to respond now.");
+  function appendFallbackPrompt(question, similarity) {
+    let message = "RelayAI has no local answer for this - your LLM would need to respond now.";
+    if (similarity !== null && similarity !== undefined) {
+      message +=
+        ` Closest cached question was ${similarity.toFixed(3)} similar` +
+        " - below the match threshold, so it didn't count.";
+    }
+    appendBubble("system", escapeHtml(message));
 
     const log = el("chat-log");
     const wrap = document.createElement("div");

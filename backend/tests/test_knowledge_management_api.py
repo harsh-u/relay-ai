@@ -173,6 +173,7 @@ def test_add_answered_question_seeds_cache_instantly(
         "text": answer,
         "source": "knowledge:semantic_match",
         "intent": None,
+        "similarity": 1.0,
     }
 
 

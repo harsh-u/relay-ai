@@ -71,6 +71,7 @@ async def test_conversation_writes_persist_across_separate_requests(
             "text": "Persisted answer",
             "source": "conversation:last_response",
             "intent": "repeat_request",
+            "similarity": None,
         }
     finally:
         await db_session.execute(
