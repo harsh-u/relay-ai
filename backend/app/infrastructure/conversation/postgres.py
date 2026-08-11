@@ -1,6 +1,7 @@
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.domain.conversation.message import ConversationMessage
@@ -98,3 +99,12 @@ class PostgresConversationStore(ConversationStore):
             )
             for message in reversed(messages)
         ]
+
+    async def purge_expired(self, older_than: datetime) -> int:
+        statement = delete(ConversationMessageModel).where(
+            ConversationMessageModel.created_at < older_than
+        )
+        result = await self._session.execute(statement)
+        await self._session.flush()
+
+        return result.rowcount

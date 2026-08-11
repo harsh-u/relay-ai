@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     embedding_similarity_threshold: float = 0.75
 
     knowledge_cache_ttl_days: int = 30
+    conversation_message_ttl_hours: int = 48
 
     model_config = SettingsConfigDict(
         env_file=".env",

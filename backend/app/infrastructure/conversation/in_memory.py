@@ -60,3 +60,13 @@ class InMemoryConversationStore(ConversationStore):
     ) -> list[ConversationMessage]:
         messages = self._messages.get(scope.key, [])
         return messages[-limit:]
+
+    async def purge_expired(self, older_than: datetime) -> int:
+        deleted = 0
+
+        for key, messages in self._messages.items():
+            remaining = [message for message in messages if message.created_at >= older_than]
+            deleted += len(messages) - len(remaining)
+            self._messages[key] = remaining
+
+        return deleted

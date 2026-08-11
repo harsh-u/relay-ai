@@ -1,10 +1,13 @@
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.domain.conversation.scope import ConversationScope
 from backend.app.infrastructure.conversation.postgres import PostgresConversationStore
 from backend.app.models.business import Business
+from backend.app.models.conversation_message import ConversationMessageModel
 from backend.app.models.tenant import Tenant
 
 
@@ -195,3 +198,63 @@ async def test_business_isolation(db_session: AsyncSession) -> None:
     last_for_b = await store.get_last_assistant_response(scope=scope_b)
 
     assert last_for_b is None
+
+
+async def _backdate(db_session: AsyncSession, text: str, created_at: datetime) -> None:
+    await db_session.execute(
+        update(ConversationMessageModel)
+        .where(ConversationMessageModel.text == text)
+        .values(created_at=created_at)
+    )
+    await db_session.flush()
+
+
+async def test_purge_expired_deletes_old_messages_but_keeps_recent(
+    db_session: AsyncSession,
+) -> None:
+    """purge_expired is deliberately global (every tenant/business), so this
+    only asserts on this test's own scope - a real dev database can have
+    other legitimate data in the table that this must not assume away."""
+
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    store = PostgresConversationStore(db_session)
+    scope = ConversationScope(
+        tenant_id=tenant_id, business_id=business_id, conversation_id="conversation-1"
+    )
+
+    await store.save_assistant_response(scope=scope, text="Old message")
+    await store.save_assistant_response(scope=scope, text="Recent message")
+    await _backdate(db_session, "Old message", datetime.now(UTC) - timedelta(days=100))
+
+    deleted = await store.purge_expired(older_than=datetime.now(UTC) - timedelta(days=50))
+
+    assert deleted >= 1
+    remaining = await store.get_recent_messages(scope=scope)
+    assert [message.text for message in remaining] == ["Recent message"]
+
+
+async def test_purge_expired_is_not_scoped_to_a_single_business(
+    db_session: AsyncSession,
+) -> None:
+    tenant_id, business_id_a = await _create_tenant_and_business(db_session)
+    _, business_id_b = await _create_tenant_and_business(db_session)
+    store = PostgresConversationStore(db_session)
+
+    scope_a = ConversationScope(
+        tenant_id=tenant_id, business_id=business_id_a, conversation_id="conversation-a"
+    )
+    scope_b = ConversationScope(
+        tenant_id=tenant_id, business_id=business_id_b, conversation_id="conversation-b"
+    )
+
+    await store.save_assistant_response(scope=scope_a, text="Old message A")
+    await store.save_assistant_response(scope=scope_b, text="Old message B")
+    old_timestamp = datetime.now(UTC) - timedelta(days=100)
+    await _backdate(db_session, "Old message A", old_timestamp)
+    await _backdate(db_session, "Old message B", old_timestamp)
+
+    deleted = await store.purge_expired(older_than=datetime.now(UTC) - timedelta(days=50))
+
+    assert deleted >= 2
+    assert await store.get_last_assistant_response(scope=scope_a) is None
+    assert await store.get_last_assistant_response(scope=scope_b) is None
