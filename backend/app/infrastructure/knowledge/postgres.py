@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.domain.knowledge.answered_question import AnsweredQuestion
@@ -25,6 +25,7 @@ class PostgresAnsweredQuestionRepository(AnsweredQuestionRepository):
         answer: str,
         embedding: list[float],
         dedup_similarity_threshold: float,
+        conversation_id: str | None,
     ) -> None:
         distance = AnsweredQuestionModel.embedding.cosine_distance(embedding)
 
@@ -50,6 +51,7 @@ class PostgresAnsweredQuestionRepository(AnsweredQuestionRepository):
                 existing.answer = answer
                 existing.embedding = embedding
                 existing.created_at = datetime.now(UTC)
+                existing.source_conversation_id = conversation_id
                 await self._session.flush()
                 return
 
@@ -60,6 +62,7 @@ class PostgresAnsweredQuestionRepository(AnsweredQuestionRepository):
             question=question,
             answer=answer,
             embedding=embedding,
+            source_conversation_id=conversation_id,
         )
 
         self._session.add(new_row)
@@ -72,6 +75,7 @@ class PostgresAnsweredQuestionRepository(AnsweredQuestionRepository):
         agent_id: str | None,
         embedding: list[float],
         min_created_at: datetime,
+        exclude_conversation_id: str | None,
     ) -> tuple[AnsweredQuestion, float] | None:
         distance = AnsweredQuestionModel.embedding.cosine_distance(embedding)
 
@@ -83,6 +87,14 @@ class PostgresAnsweredQuestionRepository(AnsweredQuestionRepository):
 
         if agent_id is not None:
             conditions.append(AnsweredQuestionModel.agent_id == agent_id)
+
+        if exclude_conversation_id is not None:
+            conditions.append(
+                or_(
+                    AnsweredQuestionModel.source_conversation_id.is_(None),
+                    AnsweredQuestionModel.source_conversation_id != exclude_conversation_id,
+                )
+            )
 
         statement = (
             select(AnsweredQuestionModel, distance).where(*conditions).order_by(distance).limit(1)

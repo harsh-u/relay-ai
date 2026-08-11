@@ -57,7 +57,7 @@ class ConversationService:
             return False
 
         await self._cache_answered_question(
-            tenant_id, business_id, agent_id, last_question, normalized_text
+            tenant_id, business_id, agent_id, last_question, normalized_text, conversation_id
         )
         return True
 
@@ -97,6 +97,7 @@ class ConversationService:
         agent_id: str,
         question: str,
         answer: str,
+        conversation_id: str,
     ) -> None:
         embedding = (await self._embedding_provider.embed([question]))[0]
 
@@ -108,4 +109,5 @@ class ConversationService:
             answer=answer,
             embedding=embedding,
             dedup_similarity_threshold=self._dedup_similarity_threshold,
+            conversation_id=conversation_id,
         )

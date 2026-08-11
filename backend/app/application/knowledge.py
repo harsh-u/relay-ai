@@ -37,4 +37,5 @@ class KnowledgeService:
             answer=answer,
             embedding=embedding,
             dedup_similarity_threshold=self._dedup_similarity_threshold,
+            conversation_id=None,
         )

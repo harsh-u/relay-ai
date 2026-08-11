@@ -20,6 +20,7 @@ async def test_near_duplicate_question_updates_existing_entry_instead_of_adding_
         answer="Yes, we accept Delta Dental PPO.",
         embedding=[1.0, 0.0, 0.0],
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
     await repository.save(
         tenant_id=TENANT_ID,
@@ -29,6 +30,7 @@ async def test_near_duplicate_question_updates_existing_entry_instead_of_adding_
         answer="Yes, we accept Delta Dental PPO and HMO.",
         embedding=[0.99, 0.01, 0.0],
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
 
     entries = _entries_for(repository)
@@ -48,6 +50,7 @@ async def test_dissimilar_question_adds_a_new_entry() -> None:
         answer="Yes.",
         embedding=[1.0, 0.0, 0.0],
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
     await repository.save(
         tenant_id=TENANT_ID,
@@ -57,6 +60,7 @@ async def test_dissimilar_question_adds_a_new_entry() -> None:
         answer="2pm.",
         embedding=[0.0, 1.0, 0.0],
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
 
     entries = _entries_for(repository)
@@ -74,6 +78,7 @@ async def test_dedup_only_applies_within_the_same_agent() -> None:
         answer="Yes.",
         embedding=[1.0, 0.0, 0.0],
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
     await repository.save(
         tenant_id=TENANT_ID,
@@ -83,6 +88,7 @@ async def test_dedup_only_applies_within_the_same_agent() -> None:
         answer="Yes.",
         embedding=[0.99, 0.01, 0.0],
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
 
     entries = _entries_for(repository)
@@ -100,6 +106,7 @@ async def test_dedup_refreshes_the_timestamp() -> None:
         answer="Yes.",
         embedding=[1.0, 0.0, 0.0],
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
     first_created_at = _entries_for(repository)[0].answered_question.created_at
 
@@ -111,6 +118,7 @@ async def test_dedup_refreshes_the_timestamp() -> None:
         answer="Yes, still.",
         embedding=[0.99, 0.01, 0.0],
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
     second_created_at = _entries_for(repository)[0].answered_question.created_at
 
@@ -128,6 +136,7 @@ async def test_list_all_returns_newest_first() -> None:
         answer="Yes.",
         embedding=[1.0, 0.0, 0.0],
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
     await repository.save(
         tenant_id=TENANT_ID,
@@ -137,6 +146,7 @@ async def test_list_all_returns_newest_first() -> None:
         answer="2pm.",
         embedding=[0.0, 1.0, 0.0],
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
 
     answers = await repository.list_all(
@@ -162,6 +172,7 @@ async def test_list_all_filters_by_agent_when_given() -> None:
         answer="Yes.",
         embedding=[1.0, 0.0, 0.0],
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
     await repository.save(
         tenant_id=TENANT_ID,
@@ -171,6 +182,7 @@ async def test_list_all_filters_by_agent_when_given() -> None:
         answer="2pm.",
         embedding=[0.0, 1.0, 0.0],
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
 
     answers = await repository.list_all(

@@ -479,10 +479,20 @@ def _ask_and_report_answer(
     )
 
 
-def test_semantic_match_reuses_answer_for_rephrased_question(
+def test_semantic_match_does_not_fire_within_the_same_conversation_that_created_it(
     client: TestClient,
     embedding_provider: FakeEmbeddingProvider,
 ) -> None:
+    """A conversation must never have an earlier turn of itself replayed
+    back at it - real bug, found by testing a multi-turn appointment-
+    booking conversation: an early-stage question ("I'd like to book an
+    appointment") got cached, and a later turn in the *same* conversation
+    matched back onto it after the caller had already moved past that
+    point, replaying stale context (e.g. asking for a name again after it
+    was already given). The same content is still fine to reuse for a
+    genuinely different caller - see
+    test_semantic_match_reuses_answer_across_different_conversations."""
+
     original_question = "Do you accept Delta Dental insurance?"
     rephrased_question = "Is Delta Dental accepted here?"
     answer = "Yes, we're in-network with Delta Dental PPO."
@@ -503,14 +513,7 @@ def test_semantic_match_reuses_answer_for_rephrased_question(
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "action": "respond",
-        "text": answer,
-        "source": "knowledge:semantic_match",
-        "intent": None,
-        "similarity": 1.0,
-        "matched_question": original_question,
-    }
+    assert response.json()["action"] == "fallback"
 
 
 def test_repeat_that_after_a_semantic_match_repeats_the_matched_answer_not_a_stale_one(
@@ -533,17 +536,21 @@ def test_repeat_that_after_a_semantic_match_repeats_the_matched_answer_not_a_sta
     embedding_provider.set_vector(second_question, [0.0, 1.0, 0.0])
     embedding_provider.set_vector(rephrased_first_question, [1.0, 0.0, 0.0])
 
-    conversation_id = "conversation-repeat-after-match"
+    seeding_conversation_id = "conversation-repeat-after-match-seed"
+    caller_conversation_id = "conversation-repeat-after-match-caller"
 
-    _ask_and_report_answer(client, conversation_id, first_question, first_answer)
-    _ask_and_report_answer(client, conversation_id, second_question, second_answer)
+    # Two different questions get cached from one conversation. A second,
+    # different conversation (a different caller) then rephrases the
+    # first one - a genuine cross-conversation match, still allowed.
+    _ask_and_report_answer(client, seeding_conversation_id, first_question, first_answer)
+    _ask_and_report_answer(client, seeding_conversation_id, second_question, second_answer)
 
     match_response = client.post(
         "/v1/inference",
         json={
             "tenant_id": TENANT_ID,
             "business_id": BUSINESS_ID,
-            "conversation_id": conversation_id,
+            "conversation_id": caller_conversation_id,
             "text": rephrased_first_question,
         },
     )
@@ -555,7 +562,7 @@ def test_repeat_that_after_a_semantic_match_repeats_the_matched_answer_not_a_sta
         json={
             "tenant_id": TENANT_ID,
             "business_id": BUSINESS_ID,
-            "conversation_id": conversation_id,
+            "conversation_id": caller_conversation_id,
             "text": "Can you repeat that?",
         },
     )
@@ -580,9 +587,12 @@ def test_fallback_reports_the_closest_cached_similarity_when_below_threshold(
     embedding_provider.set_vector(original_question, [1.0, 0.0, 0.0])
     embedding_provider.set_vector(near_miss_question, [0.6, 0.8, 0.0])
 
+    # A different conversation asks the near-miss question, so the cached
+    # question is a genuine cross-conversation candidate rather than being
+    # excluded as a same-conversation self-match.
     _ask_and_report_answer(
         client,
-        "conversation-near-miss",
+        "conversation-near-miss-seed",
         original_question,
         "Yes, we're in-network with Delta Dental PPO.",
     )
@@ -592,7 +602,7 @@ def test_fallback_reports_the_closest_cached_similarity_when_below_threshold(
         json={
             "tenant_id": TENANT_ID,
             "business_id": BUSINESS_ID,
-            "conversation_id": "conversation-near-miss",
+            "conversation_id": "conversation-near-miss-caller",
             "text": near_miss_question,
         },
     )

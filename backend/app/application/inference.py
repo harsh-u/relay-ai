@@ -145,6 +145,12 @@ class InferenceService:
         Cached answers older than the business's TTL are ignored, so a
         changed policy naturally stops being served without needing
         anything to be deleted.
+
+        Never matches a cached answer this same conversation itself most
+        recently wrote - otherwise a multi-turn call can teach the cache
+        something early on (e.g. "may I get your name?") and then have a
+        later, differently-worded turn in the *same* call match it back,
+        replaying stale context after the caller already answered it.
         """
 
         knowledge_settings = await self._business_settings_repository.get_knowledge_settings(
@@ -166,6 +172,7 @@ class InferenceService:
             agent_id=agent_filter,
             embedding=query_vector,
             min_created_at=min_created_at,
+            exclude_conversation_id=request.conversation_id,
         )
 
         if match is not None:

@@ -11,6 +11,7 @@ class _Entry:
     agent_id: str
     answered_question: AnsweredQuestion
     embedding: list[float]
+    source_conversation_id: str | None = None
 
 
 class InMemoryAnsweredQuestionRepository(AnsweredQuestionRepository):
@@ -26,6 +27,7 @@ class InMemoryAnsweredQuestionRepository(AnsweredQuestionRepository):
         answer: str,
         embedding: list[float],
         dedup_similarity_threshold: float,
+        conversation_id: str | None,
     ) -> None:
         entries = self._entries.setdefault((tenant_id, business_id), [])
 
@@ -41,6 +43,7 @@ class InMemoryAnsweredQuestionRepository(AnsweredQuestionRepository):
                     created_at=datetime.now(UTC),
                 )
                 entry.embedding = embedding
+                entry.source_conversation_id = conversation_id
                 return
 
         entries.append(
@@ -53,6 +56,7 @@ class InMemoryAnsweredQuestionRepository(AnsweredQuestionRepository):
                     created_at=datetime.now(UTC),
                 ),
                 embedding=embedding,
+                source_conversation_id=conversation_id,
             )
         )
 
@@ -63,6 +67,7 @@ class InMemoryAnsweredQuestionRepository(AnsweredQuestionRepository):
         agent_id: str | None,
         embedding: list[float],
         min_created_at: datetime,
+        exclude_conversation_id: str | None,
     ) -> tuple[AnsweredQuestion, float] | None:
         entries = self._entries.get((tenant_id, business_id), [])
 
@@ -73,6 +78,12 @@ class InMemoryAnsweredQuestionRepository(AnsweredQuestionRepository):
                 continue
 
             if entry.answered_question.created_at < min_created_at:
+                continue
+
+            if (
+                exclude_conversation_id is not None
+                and entry.source_conversation_id == exclude_conversation_id
+            ):
                 continue
 
             similarity = cosine_similarity(embedding, entry.embedding)

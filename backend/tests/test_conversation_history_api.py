@@ -63,19 +63,22 @@ def test_history_shows_a_semantic_match_with_similarity_and_matched_question(
     embedding_provider.set_vector(original_question, [1.0, 0.0, 0.0])
     embedding_provider.set_vector(rephrased_question, [1.0, 0.0, 0.0])
 
-    conversation_id = "conversation-history-semantic"
+    seeding_conversation_id = "conversation-history-semantic-seed"
+    caller_conversation_id = "conversation-history-semantic-caller"
 
+    # Seeded from one conversation; a *different* conversation (a different
+    # caller) rephrases it - a genuine cross-conversation match.
     client.post(
         "/v1/inference",
         json={
             "tenant_id": TENANT_ID,
             "business_id": BUSINESS_ID,
-            "conversation_id": conversation_id,
+            "conversation_id": seeding_conversation_id,
             "text": original_question,
         },
     )
     client.post(
-        f"/v1/conversations/{conversation_id}/messages",
+        f"/v1/conversations/{seeding_conversation_id}/messages",
         json={"tenant_id": TENANT_ID, "business_id": BUSINESS_ID, "text": answer},
     )
     client.post(
@@ -83,26 +86,24 @@ def test_history_shows_a_semantic_match_with_similarity_and_matched_question(
         json={
             "tenant_id": TENANT_ID,
             "business_id": BUSINESS_ID,
-            "conversation_id": conversation_id,
+            "conversation_id": caller_conversation_id,
             "text": rephrased_question,
         },
     )
 
     response = client.get(
-        f"/v1/conversations/{conversation_id}/history",
+        f"/v1/conversations/{caller_conversation_id}/history",
         params={"tenant_id": TENANT_ID, "business_id": BUSINESS_ID},
     )
 
     turns = response.json()["turns"]
-    # user Q1, assistant A1 (reported), user Q2 (matched), assistant A1 (now saved too - the fix)
+    # user turn (matched), assistant turn (now saved too - the persistence fix)
     assert [(t["role"], t["text"]) for t in turns] == [
-        ("user", original_question),
-        ("assistant", answer),
         ("user", rephrased_question),
         ("assistant", answer),
     ]
 
-    matched_turn = turns[2]
+    matched_turn = turns[0]
     assert matched_turn["action"] == "respond"
     assert matched_turn["source"] == "knowledge:semantic_match"
     assert matched_turn["similarity"] == 1.0

@@ -58,6 +58,8 @@ class AnsweredQuestionModel(Base):
     question: Mapped[str] = mapped_column(Text, nullable=False)
     answer: Mapped[str] = mapped_column(Text, nullable=False)
 
+    source_conversation_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
     embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIM), nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(

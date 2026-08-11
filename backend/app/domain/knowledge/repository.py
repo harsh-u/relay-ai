@@ -18,6 +18,7 @@ class AnsweredQuestionRepository(ABC):
         answer: str,
         embedding: list[float],
         dedup_similarity_threshold: float,
+        conversation_id: str | None,
     ) -> None:
         """Cache a (question, answer) pair.
 
@@ -25,6 +26,15 @@ class AnsweredQuestionRepository(ABC):
         `dedup_similarity_threshold` similar to this one, that existing
         entry is refreshed in place (new answer, new embedding, new
         timestamp) instead of adding another near-duplicate row.
+
+        `conversation_id`: which live conversation this content came from,
+        if any (None for a direct seed via the knowledge API, which has no
+        conversation). Recorded so `find_most_similar` can refuse to match
+        this entry back against the same conversation that just wrote it -
+        without this, a multi-turn call can "teach" the cache something
+        early on and then have a later turn in the *same* call match it
+        back, replaying stale context (e.g. asking for a name again after
+        the caller already gave it, minutes earlier in the same call).
         """
         raise NotImplementedError
 
@@ -36,6 +46,7 @@ class AnsweredQuestionRepository(ABC):
         agent_id: str | None,
         embedding: list[float],
         min_created_at: datetime,
+        exclude_conversation_id: str | None,
     ) -> tuple[AnsweredQuestion, float] | None:
         """Return the closest cached question for this business and its
         cosine similarity to `embedding`, or None if there are no cached
@@ -47,6 +58,12 @@ class AnsweredQuestionRepository(ABC):
 
         `min_created_at`: cached questions older than this are ignored, so
         stale answers naturally stop being served without needing deletion.
+
+        `exclude_conversation_id`: a cached question most recently written
+        by this same conversation is never matched, so a conversation can
+        never have an earlier turn of itself replayed back at it - see
+        `save()`. Cached questions with no recorded conversation (direct
+        seeds) are never excluded by this.
         """
         raise NotImplementedError
 

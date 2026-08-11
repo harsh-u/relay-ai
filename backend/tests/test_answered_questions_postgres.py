@@ -45,6 +45,7 @@ async def test_find_most_similar_returns_none_when_empty(db_session: AsyncSessio
         agent_id=None,
         embedding=_vector(1.0),
         min_created_at=_FAR_PAST,
+        exclude_conversation_id=None,
     )
 
     assert result is None
@@ -62,6 +63,7 @@ async def test_save_and_find_most_similar(db_session: AsyncSession) -> None:
         answer="Yes, we're in-network with Delta Dental PPO.",
         embedding=_vector(1.0, 0.0, 0.0),
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
 
     result = await repository.find_most_similar(
@@ -70,6 +72,7 @@ async def test_save_and_find_most_similar(db_session: AsyncSession) -> None:
         agent_id=None,
         embedding=_vector(1.0, 0.0, 0.0),
         min_created_at=_FAR_PAST,
+        exclude_conversation_id=None,
     )
 
     assert result is not None
@@ -91,6 +94,7 @@ async def test_find_most_similar_returns_closest_of_several(db_session: AsyncSes
         answer="Yes, we're in-network with Delta Dental PPO.",
         embedding=_vector(1.0, 0.0, 0.0),
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
     await repository.save(
         tenant_id=tenant_id,
@@ -100,6 +104,7 @@ async def test_find_most_similar_returns_closest_of_several(db_session: AsyncSes
         answer="We close at 2pm on Saturdays.",
         embedding=_vector(0.0, 1.0, 0.0),
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
 
     result = await repository.find_most_similar(
@@ -108,6 +113,7 @@ async def test_find_most_similar_returns_closest_of_several(db_session: AsyncSes
         agent_id=None,
         embedding=_vector(0.9, 0.1, 0.0),
         min_created_at=_FAR_PAST,
+        exclude_conversation_id=None,
     )
 
     assert result is not None
@@ -128,6 +134,7 @@ async def test_business_isolation(db_session: AsyncSession) -> None:
         answer="Yes, we're in-network with Delta Dental PPO.",
         embedding=_vector(1.0, 0.0, 0.0),
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
 
     result = await repository.find_most_similar(
@@ -136,6 +143,7 @@ async def test_business_isolation(db_session: AsyncSession) -> None:
         agent_id=None,
         embedding=_vector(1.0, 0.0, 0.0),
         min_created_at=_FAR_PAST,
+        exclude_conversation_id=None,
     )
 
     assert result is None
@@ -154,6 +162,7 @@ async def test_tenant_isolation(db_session: AsyncSession) -> None:
         answer="Yes, we're in-network with Delta Dental PPO.",
         embedding=_vector(1.0, 0.0, 0.0),
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
 
     result = await repository.find_most_similar(
@@ -162,6 +171,7 @@ async def test_tenant_isolation(db_session: AsyncSession) -> None:
         agent_id=None,
         embedding=_vector(1.0, 0.0, 0.0),
         min_created_at=_FAR_PAST,
+        exclude_conversation_id=None,
     )
 
     assert result is None
@@ -179,6 +189,7 @@ async def test_agent_isolation_when_agent_id_given(db_session: AsyncSession) -> 
         answer="Yes, we're in-network with Delta Dental PPO.",
         embedding=_vector(1.0, 0.0, 0.0),
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
 
     result_for_other_agent = await repository.find_most_similar(
@@ -187,6 +198,7 @@ async def test_agent_isolation_when_agent_id_given(db_session: AsyncSession) -> 
         agent_id="agent-b",
         embedding=_vector(1.0, 0.0, 0.0),
         min_created_at=_FAR_PAST,
+        exclude_conversation_id=None,
     )
     result_for_same_agent = await repository.find_most_similar(
         tenant_id=tenant_id,
@@ -194,6 +206,7 @@ async def test_agent_isolation_when_agent_id_given(db_session: AsyncSession) -> 
         agent_id="agent-a",
         embedding=_vector(1.0, 0.0, 0.0),
         min_created_at=_FAR_PAST,
+        exclude_conversation_id=None,
     )
     result_shared = await repository.find_most_similar(
         tenant_id=tenant_id,
@@ -201,6 +214,7 @@ async def test_agent_isolation_when_agent_id_given(db_session: AsyncSession) -> 
         agent_id=None,
         embedding=_vector(1.0, 0.0, 0.0),
         min_created_at=_FAR_PAST,
+        exclude_conversation_id=None,
     )
 
     assert result_for_other_agent is None
@@ -230,6 +244,7 @@ async def test_min_created_at_excludes_stale_entries(db_session: AsyncSession) -
         agent_id=None,
         embedding=_vector(1.0, 0.0, 0.0),
         min_created_at=datetime.now(UTC) - timedelta(days=30),
+        exclude_conversation_id=None,
     )
 
     assert result is None
@@ -247,6 +262,7 @@ async def test_clear_deletes_all_for_business_when_no_agent_given(db_session: As
         answer="Yes.",
         embedding=_vector(1.0, 0.0, 0.0),
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
     await repository.save(
         tenant_id=tenant_id,
@@ -256,6 +272,7 @@ async def test_clear_deletes_all_for_business_when_no_agent_given(db_session: As
         answer="9 to 5.",
         embedding=_vector(0.0, 1.0, 0.0),
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
 
     deleted = await repository.clear(tenant_id=tenant_id, business_id=business_id, agent_id=None)
@@ -268,6 +285,7 @@ async def test_clear_deletes_all_for_business_when_no_agent_given(db_session: As
         agent_id=None,
         embedding=_vector(1.0, 0.0, 0.0),
         min_created_at=_FAR_PAST,
+        exclude_conversation_id=None,
     )
     assert result is None
 
@@ -284,6 +302,7 @@ async def test_clear_only_deletes_given_agent(db_session: AsyncSession) -> None:
         answer="Yes.",
         embedding=_vector(1.0, 0.0, 0.0),
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
     await repository.save(
         tenant_id=tenant_id,
@@ -293,6 +312,7 @@ async def test_clear_only_deletes_given_agent(db_session: AsyncSession) -> None:
         answer="9 to 5.",
         embedding=_vector(0.0, 1.0, 0.0),
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
 
     deleted = await repository.clear(
@@ -307,6 +327,7 @@ async def test_clear_only_deletes_given_agent(db_session: AsyncSession) -> None:
         agent_id="agent-b",
         embedding=_vector(0.0, 1.0, 0.0),
         min_created_at=_FAR_PAST,
+        exclude_conversation_id=None,
     )
     assert remaining_for_b is not None
 
@@ -334,6 +355,7 @@ async def test_dedup_updates_existing_row_instead_of_inserting_a_new_one(
         answer="Yes, we accept Delta Dental PPO.",
         embedding=_vector(1.0, 0.0, 0.0),
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
     await repository.save(
         tenant_id=tenant_id,
@@ -343,6 +365,7 @@ async def test_dedup_updates_existing_row_instead_of_inserting_a_new_one(
         answer="Yes, we accept Delta Dental PPO and HMO.",
         embedding=_vector(0.99, 0.01, 0.0),
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
 
     assert await _row_count(db_session, tenant_id, business_id) == 1
@@ -353,6 +376,7 @@ async def test_dedup_updates_existing_row_instead_of_inserting_a_new_one(
         agent_id="agent-1",
         embedding=_vector(1.0, 0.0, 0.0),
         min_created_at=_FAR_PAST,
+        exclude_conversation_id=None,
     )
     assert result is not None
     answered_question, _ = result
@@ -372,6 +396,7 @@ async def test_dissimilar_questions_are_not_deduped(db_session: AsyncSession) ->
         answer="Yes.",
         embedding=_vector(1.0, 0.0, 0.0),
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
     await repository.save(
         tenant_id=tenant_id,
@@ -381,6 +406,7 @@ async def test_dissimilar_questions_are_not_deduped(db_session: AsyncSession) ->
         answer="2pm.",
         embedding=_vector(0.0, 1.0, 0.0),
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
 
     assert await _row_count(db_session, tenant_id, business_id) == 2
@@ -398,6 +424,7 @@ async def test_dedup_does_not_cross_agents(db_session: AsyncSession) -> None:
         answer="Yes.",
         embedding=_vector(1.0, 0.0, 0.0),
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
     await repository.save(
         tenant_id=tenant_id,
@@ -407,6 +434,7 @@ async def test_dedup_does_not_cross_agents(db_session: AsyncSession) -> None:
         answer="Yes.",
         embedding=_vector(0.99, 0.01, 0.0),
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
 
     assert await _row_count(db_session, tenant_id, business_id) == 2
@@ -424,6 +452,7 @@ async def test_list_all_returns_newest_first(db_session: AsyncSession) -> None:
         answer="Yes.",
         embedding=_vector(1.0, 0.0, 0.0),
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
     await repository.save(
         tenant_id=tenant_id,
@@ -433,6 +462,7 @@ async def test_list_all_returns_newest_first(db_session: AsyncSession) -> None:
         answer="2pm.",
         embedding=_vector(0.0, 1.0, 0.0),
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
 
     answers = await repository.list_all(
@@ -459,6 +489,7 @@ async def test_list_all_filters_by_agent_when_given(db_session: AsyncSession) ->
         answer="Yes.",
         embedding=_vector(1.0, 0.0, 0.0),
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
     await repository.save(
         tenant_id=tenant_id,
@@ -468,6 +499,7 @@ async def test_list_all_filters_by_agent_when_given(db_session: AsyncSession) ->
         answer="2pm.",
         embedding=_vector(0.0, 1.0, 0.0),
         dedup_similarity_threshold=0.75,
+        conversation_id=None,
     )
 
     answers = await repository.list_all(
@@ -478,3 +510,97 @@ async def test_list_all_filters_by_agent_when_given(db_session: AsyncSession) ->
 
     assert len(answers) == 1
     assert answers[0].question == "Do you accept Delta Dental insurance?"
+
+
+async def test_find_most_similar_excludes_a_match_from_the_same_conversation(
+    db_session: AsyncSession,
+) -> None:
+    """A conversation must never have an earlier turn of itself replayed
+    back at it - see the real bug this prevents in
+    backend/tests/test_inference.py."""
+
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresAnsweredQuestionRepository(db_session)
+
+    await repository.save(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-1",
+        question="I'd like to book an appointment",
+        answer="Sure, can I get your name?",
+        embedding=_vector(1.0, 0.0, 0.0),
+        dedup_similarity_threshold=0.75,
+        conversation_id="conversation-a",
+    )
+
+    result = await repository.find_most_similar(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id=None,
+        embedding=_vector(1.0, 0.0, 0.0),
+        min_created_at=_FAR_PAST,
+        exclude_conversation_id="conversation-a",
+    )
+
+    assert result is None
+
+
+async def test_find_most_similar_still_matches_across_different_conversations(
+    db_session: AsyncSession,
+) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresAnsweredQuestionRepository(db_session)
+
+    await repository.save(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-1",
+        question="I'd like to book an appointment",
+        answer="Sure, can I get your name?",
+        embedding=_vector(1.0, 0.0, 0.0),
+        dedup_similarity_threshold=0.75,
+        conversation_id="conversation-a",
+    )
+
+    result = await repository.find_most_similar(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id=None,
+        embedding=_vector(1.0, 0.0, 0.0),
+        min_created_at=_FAR_PAST,
+        exclude_conversation_id="conversation-b",
+    )
+
+    assert result is not None
+
+
+async def test_find_most_similar_never_excludes_a_directly_seeded_entry(
+    db_session: AsyncSession,
+) -> None:
+    """A direct seed (no conversation_id) has no conversation of its own to
+    exclude against - it must stay matchable no matter who's asking."""
+
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresAnsweredQuestionRepository(db_session)
+
+    await repository.save(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id="agent-1",
+        question="What are your hours?",
+        answer="9 to 5.",
+        embedding=_vector(1.0, 0.0, 0.0),
+        dedup_similarity_threshold=0.75,
+        conversation_id=None,
+    )
+
+    result = await repository.find_most_similar(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        agent_id=None,
+        embedding=_vector(1.0, 0.0, 0.0),
+        min_created_at=_FAR_PAST,
+        exclude_conversation_id="conversation-a",
+    )
+
+    assert result is not None
