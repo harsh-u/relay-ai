@@ -28,6 +28,7 @@ def test_greeting_is_answered_without_llm(client: TestClient) -> None:
         "source": "builtin:greeting",
         "intent": "greeting",
         "similarity": None,
+        "matched_question": None,
     }
 
 
@@ -49,6 +50,7 @@ def test_repeat_request_is_recognized(client: TestClient) -> None:
         "source": None,
         "intent": "repeat_request",
         "similarity": None,
+        "matched_question": None,
     }
 
 
@@ -70,6 +72,7 @@ def test_repeat_request_variation_is_recognized(client: TestClient) -> None:
         "source": None,
         "intent": "repeat_request",
         "similarity": None,
+        "matched_question": None,
     }
 
 
@@ -91,6 +94,7 @@ def test_unknown_request_falls_back(client: TestClient) -> None:
         "source": None,
         "intent": None,
         "similarity": None,
+        "matched_question": None,
     }
 
 
@@ -112,6 +116,7 @@ def test_empty_request_falls_back(client: TestClient) -> None:
         "source": None,
         "intent": None,
         "similarity": None,
+        "matched_question": None,
     }
 
 
@@ -158,6 +163,7 @@ def test_repeat_request_returns_last_assistant_response(client: TestClient) -> N
         "source": "conversation:last_response",
         "intent": "repeat_request",
         "similarity": None,
+        "matched_question": None,
     }
 
 
@@ -179,6 +185,7 @@ def test_repeat_request_without_context_falls_back(client: TestClient) -> None:
         "source": None,
         "intent": "repeat_request",
         "similarity": None,
+        "matched_question": None,
     }
 
 
@@ -287,6 +294,7 @@ def test_llm_response_can_be_used_for_repeat_request(client: TestClient) -> None
         "source": None,
         "intent": None,
         "similarity": None,
+        "matched_question": None,
     }
 
     assistant_response = client.post(
@@ -321,6 +329,7 @@ def test_llm_response_can_be_used_for_repeat_request(client: TestClient) -> None
         "source": "conversation:last_response",
         "intent": "repeat_request",
         "similarity": None,
+        "matched_question": None,
     }
 
 
@@ -356,6 +365,7 @@ def test_llm_context_is_isolated_between_conversations(client: TestClient) -> No
         "source": None,
         "intent": "repeat_request",
         "similarity": None,
+        "matched_question": None,
     }
 
 
@@ -466,6 +476,7 @@ def test_semantic_match_reuses_answer_for_rephrased_question(
         "source": "knowledge:semantic_match",
         "intent": None,
         "similarity": 1.0,
+        "matched_question": original_question,
     }
 
 
@@ -507,6 +518,7 @@ def test_fallback_reports_the_closest_cached_similarity_when_below_threshold(
         "source": None,
         "intent": None,
         "similarity": 0.6,
+        "matched_question": original_question,
     }
 
 
@@ -575,6 +587,7 @@ def test_semantic_match_reuses_answer_across_different_conversations(
         "source": "knowledge:semantic_match",
         "intent": None,
         "similarity": 1.0,
+        "matched_question": original_question,
     }
 
 

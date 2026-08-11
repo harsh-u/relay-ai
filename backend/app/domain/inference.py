@@ -29,3 +29,4 @@ class InferenceResponse:
     source: str | None = None
     intent: Intent | None = None
     similarity: float | None = None
+    matched_question: str | None = None

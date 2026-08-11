@@ -272,6 +272,14 @@
     color: var(--accent);
   }
   .bubble.assistant.fallback-answer .tag { background: #fff7ed; color: var(--fallback); }
+  .matched-question {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .matched-question q { font-style: italic; }
+  .system-detail .matched-question { color: #92400e; }
   .fallback-reply {
     align-self: center;
     background: #fff;
@@ -674,9 +682,13 @@
           tagParts.push("similarity " + result.similarity.toFixed(3));
         }
         const tag = tagParts.filter(Boolean).join(" · ");
-        appendBubble("assistant", `${escapeHtml(result.text)}<div class="tag">${escapeHtml(tag)}</div>`);
+        let html = `${escapeHtml(result.text)}<div class="tag">${escapeHtml(tag)}</div>`;
+        if (result.matched_question) {
+          html += `<span class="matched-question">Matched cached question: <q>${escapeHtml(result.matched_question)}</q></span>`;
+        }
+        appendBubble("assistant", html);
       } else {
-        appendFallbackPrompt(text, result.similarity);
+        appendFallbackPrompt(text, result.similarity, result.matched_question);
       }
     } catch (err) {
       appendBubble("system", "Error: " + escapeHtml(err.message));
@@ -685,14 +697,20 @@
 
   let fallbackReplyCounter = 0;
 
-  function appendFallbackPrompt(question, similarity) {
-    let message = "RelayAI has no local answer for this - your LLM would need to respond now.";
+  function appendFallbackPrompt(question, similarity, matchedQuestion) {
+    let html = escapeHtml(
+      "RelayAI has no local answer for this - your LLM would need to respond now."
+    );
     if (similarity !== null && similarity !== undefined) {
-      message +=
+      html += escapeHtml(
         ` Closest cached question was ${similarity.toFixed(3)} similar` +
-        " - below the match threshold, so it didn't count.";
+          " - below the match threshold, so it didn't count."
+      );
     }
-    appendBubble("system", escapeHtml(message));
+    if (matchedQuestion) {
+      html += `<span class="matched-question">Closest cached question: <q>${escapeHtml(matchedQuestion)}</q></span>`;
+    }
+    appendBubble("system", html, "system-detail");
 
     const log = el("chat-log");
     const wrap = document.createElement("div");

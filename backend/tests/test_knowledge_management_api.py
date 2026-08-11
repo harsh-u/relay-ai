@@ -174,6 +174,7 @@ def test_add_answered_question_seeds_cache_instantly(
         "source": "knowledge:semantic_match",
         "intent": None,
         "similarity": 1.0,
+        "matched_question": question,
     }
 
 

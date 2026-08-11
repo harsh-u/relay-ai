@@ -77,3 +77,15 @@ class InferenceResponseBody(BaseModel):
         ),
         examples=[0.812],
     )
+    matched_question: str | None = Field(
+        default=None,
+        description=(
+            "The cached question this turn was compared against - the one "
+            "actually reused (source is 'knowledge:semantic_match') or the "
+            "closest candidate that came up short on a fallback. Lets you "
+            "see exactly which prior question this turn is being judged "
+            "against, not just how similar it was. None under the same "
+            "conditions as `similarity`."
+        ),
+        examples=["Do you accept Delta Dental insurance?"],
+    )
