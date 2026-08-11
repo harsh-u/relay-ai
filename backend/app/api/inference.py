@@ -22,7 +22,7 @@ from backend.app.domain.business.repository import BusinessSettingsRepository
 from backend.app.domain.conversation.scope import ConversationScope
 from backend.app.domain.conversation.store import ConversationStore
 from backend.app.domain.embedding.provider import EmbeddingProvider
-from backend.app.domain.inference import InferenceRequest
+from backend.app.domain.inference import InferenceAction, InferenceRequest
 from backend.app.domain.knowledge.repository import AnsweredQuestionRepository
 from backend.app.domain.matching.pattern_repository import IntentPatternRepository
 from backend.app.infrastructure.analytics.dependencies import get_decision_repository
@@ -231,9 +231,11 @@ async def get_conversation_history(
 ) -> ConversationHistoryResponse:
     """Review a conversation after the fact: the full transcript, with each
     user turn annotated with how RelayAI decided to answer it (action,
-    source, similarity, and which cached question it was judged against) -
-    for seeing why an answer came out the way it did without needing to
-    watch it happen live or query the database directly."""
+    source, similarity, and which cached question it was judged against),
+    and each assistant turn labelled with who actually answered it -
+    RelayAI itself, or the caller's own LLM on a fallback - for seeing why
+    an answer came out the way it did without needing to watch it happen
+    live or query the database directly."""
 
     scope = ConversationScope(
         tenant_id=tenant_id,
@@ -249,8 +251,18 @@ async def get_conversation_history(
     decision_iterator = iter(decisions)
 
     turns = []
+    last_decision = None
     for message in messages:
-        decision = next(decision_iterator, None) if message.role == "user" else None
+        decision = None
+        answered_by = None
+
+        if message.role == "user":
+            decision = next(decision_iterator, None)
+            last_decision = decision
+        elif last_decision is not None:
+            answered_by = (
+                "relayai" if last_decision.action == InferenceAction.RESPOND else "llm_fallback"
+            )
 
         turns.append(
             ConversationTurnResponse(
@@ -262,6 +274,7 @@ async def get_conversation_history(
                 intent=decision.intent if decision else None,
                 similarity=decision.similarity if decision else None,
                 matched_question=decision.matched_question if decision else None,
+                answered_by=answered_by,
             )
         )
 

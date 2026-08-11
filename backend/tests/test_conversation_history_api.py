@@ -49,7 +49,9 @@ def test_history_shows_a_fallback_then_reported_answer(client: TestClient) -> No
         ("assistant", "Refunds within 30 days."),
     ]
     assert turns[0]["action"] == "fallback"
+    assert turns[0]["answered_by"] is None
     assert turns[1]["action"] is None
+    assert turns[1]["answered_by"] == "llm_fallback"
 
 
 def test_history_shows_a_semantic_match_with_similarity_and_matched_question(
@@ -108,6 +110,39 @@ def test_history_shows_a_semantic_match_with_similarity_and_matched_question(
     assert matched_turn["source"] == "knowledge:semantic_match"
     assert matched_turn["similarity"] == 1.0
     assert matched_turn["matched_question"] == original_question
+
+    assert turns[1]["answered_by"] == "relayai"
+
+
+def test_history_labels_a_builtin_greeting_reply_as_answered_by_relayai(
+    client: TestClient,
+) -> None:
+    conversation_id = "conversation-history-greeting"
+
+    client.post(
+        "/v1/inference",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
+            "conversation_id": conversation_id,
+            "text": "hello",
+        },
+    )
+
+    response = client.get(
+        f"/v1/conversations/{conversation_id}/history",
+        params={"tenant_id": TENANT_ID, "business_id": BUSINESS_ID},
+    )
+
+    turns = response.json()["turns"]
+    assert turns[0]["role"] == "user"
+    assert turns[0]["action"] == "respond"
+    assert turns[0]["source"] == "builtin:greeting"
+    assert turns[0]["answered_by"] is None
+
+    assert turns[1]["role"] == "assistant"
+    assert turns[1]["action"] is None
+    assert turns[1]["answered_by"] == "relayai"
 
 
 def test_list_conversations_is_empty_for_a_business_with_no_activity(client: TestClient) -> None:

@@ -71,6 +71,18 @@ class ConversationTurnResponse(BaseModel):
         default=None,
         description="The cached question compared against, if any.",
     )
+    answered_by: str | None = Field(
+        default=None,
+        description=(
+            "Only present for an 'assistant' turn. 'relayai' if this answer "
+            "came straight from RelayAI (the preceding user turn's action "
+            "was 'respond') - see that turn's `source` for which mechanism. "
+            "'llm_fallback' if RelayAI had no answer and this is what the "
+            "caller's own LLM said, reported back via "
+            "POST /v1/conversations/{id}/messages."
+        ),
+        examples=["relayai"],
+    )
 
 
 class ConversationHistoryResponse(BaseModel):

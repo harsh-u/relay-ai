@@ -278,7 +278,7 @@
     font-size: 13px;
     max-width: 85%;
   }
-  .bubble .tag {
+  .tag {
     display: inline-block;
     margin-top: 6px;
     font-size: 11px;
@@ -287,7 +287,8 @@
     background: #eef2ff;
     color: var(--accent);
   }
-  .bubble.assistant.fallback-answer .tag { background: #fff7ed; color: var(--fallback); }
+  .bubble.assistant.fallback-answer .tag,
+  .tag.fallback { background: #fff7ed; color: var(--fallback); }
   .matched-question {
     display: block;
     margin-top: 4px;
@@ -1165,6 +1166,10 @@
           if (turn.matched_question) {
             annotation += `<span class="matched-question">Compared against: <q>${escapeHtml(turn.matched_question)}</q></span>`;
           }
+        } else if (turn.answered_by === "relayai") {
+          annotation = '<div class="tag">Answered by RelayAI</div>';
+        } else if (turn.answered_by === "llm_fallback") {
+          annotation = '<div class="tag fallback">Answered by caller\'s LLM (fallback)</div>';
         }
 
         row.innerHTML = `
