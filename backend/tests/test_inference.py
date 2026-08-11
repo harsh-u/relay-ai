@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from backend.app.domain.matching.intent import Intent
 from backend.app.infrastructure.embedding.fake import FakeEmbeddingProvider
+from backend.app.infrastructure.knowledge.in_memory import InMemoryAnsweredQuestionRepository
 from backend.app.infrastructure.matching.in_memory_patterns import (
     InMemoryIntentPatternRepository,
 )
@@ -167,6 +168,37 @@ def test_repeat_request_returns_last_assistant_response(client: TestClient) -> N
     }
 
 
+def test_reporting_a_repeat_request_fallback_does_not_pollute_the_knowledge_cache(
+    client: TestClient,
+    answered_question_repository: InMemoryAnsweredQuestionRepository,
+) -> None:
+    """ "Can you repeat that?" with no prior context falls back - but it's a
+    recognized intent, not an unanswered business question. Reporting an
+    answer for it must not cache it as if it were real business content."""
+
+    client.post(
+        "/v1/inference",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": "business-1",
+            "conversation_id": "conversation-repeat-no-context",
+            "text": "Can you repeat that?",
+        },
+    )
+    report_response = client.post(
+        "/v1/conversations/conversation-repeat-no-context/messages",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": "business-1",
+            "text": "Sure, I can repeat things in this same call.",
+        },
+    )
+
+    assert report_response.json()["cached"] is False
+    entries = answered_question_repository._entries.get((TENANT_ID, "business-1"), [])
+    assert entries == []
+
+
 def test_repeat_request_without_context_falls_back(client: TestClient) -> None:
     response = client.post(
         "/v1/inference",
@@ -310,6 +342,7 @@ def test_llm_response_can_be_used_for_repeat_request(client: TestClient) -> None
     assert assistant_response.json() == {
         "conversation_id": conversation_id,
         "stored": True,
+        "cached": True,
     }
 
     repeat_response = client.post(

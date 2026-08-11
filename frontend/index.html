@@ -88,6 +88,10 @@
     cursor: pointer;
     border: 1px solid transparent;
     font-size: 14px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 6px;
   }
   .company-item:hover { background: #f0f1f5; }
   .company-item.active {
@@ -96,12 +100,24 @@
     color: var(--accent);
     font-weight: 600;
   }
+  .company-item .label { min-width: 0; overflow-wrap: anywhere; }
   .company-item .meta {
     font-size: 11px;
     color: var(--muted);
     font-weight: 400;
   }
   .company-item.active .meta { color: var(--accent); opacity: 0.8; }
+  .company-item .delete-company {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 2px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .company-item .delete-company:hover { color: var(--danger); background: none; }
   main {
     flex: 1;
     display: flex;
@@ -526,6 +542,19 @@
     setTimeout(() => { t.className = "toast"; }, 2500);
   }
 
+  function describeErrorDetail(detail) {
+    if (Array.isArray(detail)) {
+      // FastAPI validation errors: a list of {loc, msg, ...}.
+      return detail
+        .map((err) => {
+          const field = Array.isArray(err.loc) ? err.loc.filter((p) => p !== "body").join(".") : "";
+          return field ? `${field}: ${err.msg}` : err.msg;
+        })
+        .join("; ");
+    }
+    return detail;
+  }
+
   async function api(path, options = {}) {
     const response = await fetch(path, {
       ...options,
@@ -533,7 +562,12 @@
     });
     if (!response.ok) {
       let detail = response.statusText;
-      try { detail = (await response.json()).detail || detail; } catch (_) { /* ignore */ }
+      try {
+        const body = await response.json();
+        if (body.detail) detail = describeErrorDetail(body.detail);
+      } catch (_) {
+        /* ignore */
+      }
       throw new Error(detail);
     }
     if (response.status === 204) return null;
@@ -566,8 +600,32 @@
     for (const company of state.companies) {
       const item = document.createElement("div");
       item.className = "company-item" + (state.company && state.company.id === company.id ? " active" : "");
-      item.innerHTML = `${escapeHtml(company.name)}<div class="meta">${company.knowledge_scope} · ttl ${company.knowledge_ttl_days}d</div>`;
+      item.innerHTML = `
+        <div class="label">${escapeHtml(company.name)}<div class="meta">${company.knowledge_scope} · ttl ${company.knowledge_ttl_days}d</div></div>
+        <button type="button" class="delete-company" title="Delete company">&times;</button>
+      `;
       item.addEventListener("click", () => selectCompany(company));
+
+      const deleteBtn = item.querySelector(".delete-company");
+      deleteBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        if (!confirm(`Delete "${company.name}" and everything under it - conversations, cached answers, patterns? This can't be undone.`)) {
+          return;
+        }
+        try {
+          await api(`/v1/companies/${encodeURIComponent(company.id)}`, { method: "DELETE" });
+          if (state.company && state.company.id === company.id) {
+            state.company = null;
+            el("company-view").style.display = "none";
+            el("empty-state").style.display = "flex";
+          }
+          await loadCompanies();
+          toast(`Deleted "${company.name}"`);
+        } catch (err) {
+          toast("Failed to delete company: " + err.message, true);
+        }
+      });
+
       list.appendChild(item);
     }
   }
@@ -580,6 +638,7 @@
     el("company-name").textContent = company.name;
     el("company-ids").textContent = `business_id: ${company.id}  |  tenant_id: ${company.tenant_id}`;
     el("chat-log").innerHTML = "";
+    el("agent-id").value = "default";
     updateConversationLabel();
     renderCompanyList();
     refreshActiveTab();
@@ -731,22 +790,29 @@
       if (!answer) return;
       button.disabled = true;
       try {
-        await api(`/v1/conversations/${encodeURIComponent(state.conversationId)}/messages`, {
-          method: "POST",
-          body: JSON.stringify({
-            tenant_id: state.company.tenant_id,
-            business_id: state.company.id,
-            agent_id: agentId(),
-            text: answer,
-          }),
-        });
+        const result = await api(
+          `/v1/conversations/${encodeURIComponent(state.conversationId)}/messages`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              tenant_id: state.company.tenant_id,
+              business_id: state.company.id,
+              agent_id: agentId(),
+              text: answer,
+            }),
+          }
+        );
         wrap.remove();
         appendBubble(
           "assistant",
           `${escapeHtml(answer)}<div class="tag">fallback · your LLM</div>`,
           "fallback-answer"
         );
-        toast("Reported back - now cached for future similar questions");
+        toast(
+          result.cached
+            ? "Reported back - now cached for future similar questions"
+            : "Reported back - not cached (that question was a recognized intent, not a business question)"
+        );
       } catch (err) {
         toast("Failed to report answer: " + err.message, true);
         button.disabled = false;
@@ -812,7 +878,7 @@
         removeBtn.textContent = "Remove";
         removeBtn.addEventListener("click", async () => {
           try {
-            await api(
+            const result = await api(
               "/v1/patterns" +
                 qs({
                   tenant_id: state.company.tenant_id,
@@ -823,6 +889,7 @@
               { method: "DELETE" }
             );
             loadPatterns();
+            toast(result.removed ? "Pattern removed" : "Pattern was already gone");
           } catch (err) {
             toast("Failed to remove pattern: " + err.message, true);
           }

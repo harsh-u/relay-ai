@@ -1,10 +1,11 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Path
 
 from backend.app.api.schemas.companies import (
     CompanyResponse,
     CreateCompanyRequest,
+    DeleteCompanyResponse,
     ListCompaniesResponse,
 )
 from backend.app.domain.business.company import Company
@@ -60,3 +61,21 @@ async def list_companies(
     companies = await company_repository.list_all()
 
     return ListCompaniesResponse(companies=[_to_response(company) for company in companies])
+
+
+@router.delete("/companies/{business_id}", response_model=DeleteCompanyResponse)
+async def delete_company(
+    business_id: Annotated[
+        str, Path(description="The company's id (its business_id in every other endpoint).")
+    ],
+    company_repository: Annotated[
+        CompanyRepository,
+        Depends(get_company_repository),
+    ],
+) -> DeleteCompanyResponse:
+    """Delete a company and everything under it - conversations, cached
+    answers, custom patterns, decision history. Irreversible."""
+
+    deleted = await company_repository.delete(business_id=business_id)
+
+    return DeleteCompanyResponse(deleted=deleted)

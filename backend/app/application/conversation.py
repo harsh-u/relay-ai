@@ -2,6 +2,8 @@ from backend.app.domain.conversation.scope import ConversationScope
 from backend.app.domain.conversation.store import ConversationStore
 from backend.app.domain.embedding.provider import EmbeddingProvider
 from backend.app.domain.knowledge.repository import AnsweredQuestionRepository
+from backend.app.domain.matching.pattern_repository import IntentPatternRepository
+from backend.app.infrastructure.matching.rule_based import RuleBasedIntentMatcher
 
 
 class ConversationService:
@@ -12,11 +14,13 @@ class ConversationService:
         conversation_store: ConversationStore,
         embedding_provider: EmbeddingProvider,
         answered_question_repository: AnsweredQuestionRepository,
+        pattern_repository: IntentPatternRepository,
         dedup_similarity_threshold: float,
     ) -> None:
         self._conversation_store = conversation_store
         self._embedding_provider = embedding_provider
         self._answered_question_repository = answered_question_repository
+        self._pattern_repository = pattern_repository
         self._dedup_similarity_threshold = dedup_similarity_threshold
 
     async def record_assistant_response(
@@ -26,7 +30,9 @@ class ConversationService:
         conversation_id: str,
         agent_id: str,
         text: str,
-    ) -> None:
+    ) -> bool:
+        """Returns whether this answer was added to the knowledge cache."""
+
         normalized_text = text.strip()
 
         if not normalized_text:
@@ -45,10 +51,15 @@ class ConversationService:
             text=normalized_text,
         )
 
-        if last_question is not None:
-            await self._cache_answered_question(
-                tenant_id, business_id, agent_id, last_question, normalized_text
-            )
+        if last_question is None or await self._is_a_recognized_intent(
+            tenant_id, business_id, last_question
+        ):
+            return False
+
+        await self._cache_answered_question(
+            tenant_id, business_id, agent_id, last_question, normalized_text
+        )
+        return True
 
     async def _last_user_question(self, scope: ConversationScope) -> str | None:
         history = await self._conversation_store.get_recent_messages(scope=scope)
@@ -58,6 +69,26 @@ class ConversationService:
                 return message.text
 
         return None
+
+    async def _is_a_recognized_intent(
+        self,
+        tenant_id: str,
+        business_id: str,
+        question: str,
+    ) -> bool:
+        """A reported answer only belongs in the knowledge cache if the
+        question it answers was actually unanswerable locally. Some turns
+        fall back for a different reason - e.g. "repeat that" with no prior
+        context - and caching those pairs the answer with a meta phrase
+        instead of real business content, polluting future matches."""
+
+        patterns = await self._pattern_repository.get_patterns(
+            tenant_id=tenant_id,
+            business_id=business_id,
+        )
+        matcher = RuleBasedIntentMatcher(patterns=patterns)
+
+        return await matcher.match(question) is not None
 
     async def _cache_answered_question(
         self,

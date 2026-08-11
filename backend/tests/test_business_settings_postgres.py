@@ -53,6 +53,35 @@ async def test_reads_isolated_scope_and_ttl_override(db_session: AsyncSession) -
     assert settings.knowledge_ttl_days == 7
 
 
+async def test_reads_a_ttl_of_zero_as_zero_not_the_default(db_session: AsyncSession) -> None:
+    """0 is a deliberate, documented value ("never reuse cached answers"),
+    not "unset" - it must not fall back to the default."""
+
+    tenant_id, business_id = await _create_tenant_and_business(db_session, knowledge_ttl_days=0)
+    repository = PostgresBusinessSettingsRepository(db_session, default_ttl_days=30)
+
+    settings = await repository.get_knowledge_settings(tenant_id, business_id)
+
+    assert settings.knowledge_ttl_days == 0
+
+
+async def test_updating_ttl_to_zero_persists_as_zero_not_the_default(
+    db_session: AsyncSession,
+) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresBusinessSettingsRepository(db_session, default_ttl_days=30)
+
+    updated = await repository.update_knowledge_settings(
+        tenant_id, business_id, knowledge_scope=None, knowledge_ttl_days=0
+    )
+
+    assert updated is not None
+    assert updated.knowledge_ttl_days == 0
+
+    persisted = await repository.get_knowledge_settings(tenant_id, business_id)
+    assert persisted.knowledge_ttl_days == 0
+
+
 async def test_unknown_business_falls_back_to_shared_default(db_session: AsyncSession) -> None:
     tenant_id, _ = await _create_tenant_and_business(db_session)
     repository = PostgresBusinessSettingsRepository(db_session, default_ttl_days=30)

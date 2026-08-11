@@ -39,7 +39,11 @@ class PostgresBusinessSettingsRepository(BusinessSettingsRepository):
 
         return BusinessKnowledgeSettings(
             knowledge_scope=KnowledgeScope(business.knowledge_scope),
-            knowledge_ttl_days=business.knowledge_ttl_days or self._default_ttl_days,
+            knowledge_ttl_days=(
+                business.knowledge_ttl_days
+                if business.knowledge_ttl_days is not None
+                else self._default_ttl_days
+            ),
         )
 
     async def update_knowledge_settings(
@@ -70,5 +74,9 @@ class PostgresBusinessSettingsRepository(BusinessSettingsRepository):
 
         return BusinessKnowledgeSettings(
             knowledge_scope=KnowledgeScope(business.knowledge_scope),
-            knowledge_ttl_days=business.knowledge_ttl_days or self._default_ttl_days,
+            knowledge_ttl_days=(
+                business.knowledge_ttl_days
+                if business.knowledge_ttl_days is not None
+                else self._default_ttl_days
+            ),
         )

@@ -33,3 +33,11 @@ class AssistantMessageResponse(BaseModel):
 
     conversation_id: str
     stored: bool
+    cached: bool = Field(
+        description=(
+            "Whether this answer was also added to the semantic knowledge "
+            "cache for future reuse. False when the question it answers was "
+            "itself a recognized intent (e.g. 'repeat that' with no prior "
+            "context) rather than a genuine unanswered business question."
+        ),
+    )

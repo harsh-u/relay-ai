@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from backend.app.domain.business.knowledge_scope import KnowledgeScope
 
@@ -14,6 +14,16 @@ class CreateCompanyRequest(BaseModel):
         description="The company's display name.",
         examples=["Bright Smile Dental"],
     )
+
+    @field_validator("name")
+    @classmethod
+    def _name_must_have_visible_content(cls, value: str) -> str:
+        stripped = value.strip()
+
+        if not stripped:
+            raise ValueError("name cannot be blank")
+
+        return stripped
 
 
 class CompanyResponse(BaseModel):
@@ -33,3 +43,9 @@ class ListCompaniesResponse(BaseModel):
     """Every company that exists, newest first."""
 
     companies: list[CompanyResponse]
+
+
+class DeleteCompanyResponse(BaseModel):
+    """Whether a matching company existed and was deleted."""
+
+    deleted: bool

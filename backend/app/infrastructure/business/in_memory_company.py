@@ -26,3 +26,11 @@ class InMemoryCompanyRepository(CompanyRepository):
 
     async def list_all(self) -> list[Company]:
         return sorted(self._companies, key=lambda company: company.created_at, reverse=True)
+
+    async def delete(self, business_id: str) -> bool:
+        for index, company in enumerate(self._companies):
+            if company.id == business_id:
+                del self._companies[index]
+                return True
+
+        return False

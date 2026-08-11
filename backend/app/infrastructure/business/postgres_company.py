@@ -1,6 +1,6 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.domain.business.company import Company, slugify
@@ -38,6 +38,29 @@ class PostgresCompanyRepository(CompanyRepository):
 
         return [self._to_company(business) for business in result.scalars()]
 
+    async def delete(self, business_id: str) -> bool:
+        business = await self._session.get(Business, UUID(business_id))
+
+        if business is None:
+            return False
+
+        tenant_id = business.tenant_id
+        await self._session.delete(business)
+        await self._session.flush()
+
+        remaining = await self._session.execute(
+            select(func.count()).where(Business.tenant_id == tenant_id)
+        )
+
+        if remaining.scalar_one() == 0:
+            tenant = await self._session.get(Tenant, tenant_id)
+
+            if tenant is not None:
+                await self._session.delete(tenant)
+                await self._session.flush()
+
+        return True
+
     def _to_company(self, business: Business) -> Company:
         return Company(
             id=str(business.id),
@@ -45,6 +68,10 @@ class PostgresCompanyRepository(CompanyRepository):
             name=business.name,
             slug=business.slug,
             knowledge_scope=KnowledgeScope(business.knowledge_scope),
-            knowledge_ttl_days=business.knowledge_ttl_days or self._default_ttl_days,
+            knowledge_ttl_days=(
+                business.knowledge_ttl_days
+                if business.knowledge_ttl_days is not None
+                else self._default_ttl_days
+            ),
             created_at=business.created_at,
         )

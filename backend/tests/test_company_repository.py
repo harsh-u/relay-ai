@@ -44,3 +44,32 @@ async def test_list_all_returns_every_company_newest_first() -> None:
     companies = await repository.list_all()
 
     assert [company.id for company in companies] == [second.id, first.id]
+
+
+async def test_delete_removes_an_existing_company() -> None:
+    repository = InMemoryCompanyRepository()
+    company = await repository.create(name="Bright Smile Dental")
+
+    deleted = await repository.delete(company.id)
+
+    assert deleted is True
+    assert await repository.list_all() == []
+
+
+async def test_delete_returns_false_for_an_unknown_company() -> None:
+    repository = InMemoryCompanyRepository()
+
+    deleted = await repository.delete("does-not-exist")
+
+    assert deleted is False
+
+
+async def test_delete_only_removes_the_targeted_company() -> None:
+    repository = InMemoryCompanyRepository()
+    first = await repository.create(name="First Company")
+    second = await repository.create(name="Second Company")
+
+    await repository.delete(first.id)
+
+    remaining = await repository.list_all()
+    assert [company.id for company in remaining] == [second.id]

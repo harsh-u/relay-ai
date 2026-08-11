@@ -124,21 +124,28 @@ async def record_assistant_message(
         AnsweredQuestionRepository,
         Depends(get_answered_question_repository),
     ],
+    pattern_repository: Annotated[
+        IntentPatternRepository,
+        Depends(get_intent_pattern_repository),
+    ],
 ) -> AssistantMessageResponse:
     """Report back what your LLM answered for a 'fallback' turn. This is
     also what feeds RelayAI's semantic knowledge cache - the question this
     answer responds to (the last thing the caller said in this
     conversation) gets cached so future callers asking something similar
-    can be answered directly next time."""
+    can be answered directly next time. Not cached if that question was
+    itself a recognized intent (e.g. "repeat that" with no prior context) -
+    only genuinely unanswered business questions get cached."""
 
     conversation_service = ConversationService(
         conversation_store=conversation_store,
         embedding_provider=embedding_provider,
         answered_question_repository=answered_question_repository,
+        pattern_repository=pattern_repository,
         dedup_similarity_threshold=get_settings().embedding_similarity_threshold,
     )
 
-    await conversation_service.record_assistant_response(
+    cached = await conversation_service.record_assistant_response(
         tenant_id=request.tenant_id,
         business_id=request.business_id,
         conversation_id=conversation_id,
@@ -149,4 +156,5 @@ async def record_assistant_message(
     return AssistantMessageResponse(
         conversation_id=conversation_id,
         stored=True,
+        cached=cached,
     )
