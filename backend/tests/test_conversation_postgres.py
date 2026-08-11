@@ -258,3 +258,90 @@ async def test_purge_expired_is_not_scoped_to_a_single_business(
     assert deleted >= 2
     assert await store.get_last_assistant_response(scope=scope_a) is None
     assert await store.get_last_assistant_response(scope=scope_b) is None
+
+
+async def test_list_recent_conversations_shows_the_last_message_per_conversation(
+    db_session: AsyncSession,
+) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    store = PostgresConversationStore(db_session)
+
+    scope_a = ConversationScope(
+        tenant_id=tenant_id, business_id=business_id, conversation_id="conversation-a"
+    )
+    scope_b = ConversationScope(
+        tenant_id=tenant_id, business_id=business_id, conversation_id="conversation-b"
+    )
+
+    await store.save_user_message(scope=scope_a, text="Hi")
+    await store.save_assistant_response(scope=scope_a, text="Hello! How can I help you?")
+    await store.save_user_message(scope=scope_b, text="What are your hours?")
+
+    summaries = await store.list_recent_conversations(tenant_id=tenant_id, business_id=business_id)
+
+    by_id = {summary.conversation_id: summary for summary in summaries}
+    assert set(by_id) == {"conversation-a", "conversation-b"}
+    assert by_id["conversation-a"].last_message_role == "assistant"
+    assert by_id["conversation-a"].last_message_text == "Hello! How can I help you?"
+    assert by_id["conversation-b"].last_message_role == "user"
+    assert by_id["conversation-b"].last_message_text == "What are your hours?"
+
+
+async def test_list_recent_conversations_orders_by_most_recent_activity(
+    db_session: AsyncSession,
+) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    store = PostgresConversationStore(db_session)
+
+    scope_older = ConversationScope(
+        tenant_id=tenant_id, business_id=business_id, conversation_id="conversation-older"
+    )
+    scope_newer = ConversationScope(
+        tenant_id=tenant_id, business_id=business_id, conversation_id="conversation-newer"
+    )
+
+    await store.save_user_message(scope=scope_older, text="First conversation")
+    await store.save_user_message(scope=scope_newer, text="Second conversation")
+
+    summaries = await store.list_recent_conversations(tenant_id=tenant_id, business_id=business_id)
+
+    assert [summary.conversation_id for summary in summaries] == [
+        "conversation-newer",
+        "conversation-older",
+    ]
+
+
+async def test_list_recent_conversations_respects_the_limit(db_session: AsyncSession) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    store = PostgresConversationStore(db_session)
+
+    for i in range(5):
+        scope = ConversationScope(
+            tenant_id=tenant_id, business_id=business_id, conversation_id=f"conversation-{i}"
+        )
+        await store.save_user_message(scope=scope, text=f"Message {i}")
+
+    summaries = await store.list_recent_conversations(
+        tenant_id=tenant_id, business_id=business_id, limit=2
+    )
+
+    assert len(summaries) == 2
+
+
+async def test_list_recent_conversations_is_scoped_to_its_business(
+    db_session: AsyncSession,
+) -> None:
+    tenant_id, business_id_a = await _create_tenant_and_business(db_session)
+    _, business_id_b = await _create_tenant_and_business(db_session)
+    store = PostgresConversationStore(db_session)
+
+    scope_a = ConversationScope(
+        tenant_id=tenant_id, business_id=business_id_a, conversation_id="conversation-a"
+    )
+    await store.save_user_message(scope=scope_a, text="Hi")
+
+    summaries = await store.list_recent_conversations(
+        tenant_id=tenant_id, business_id=business_id_b
+    )
+
+    assert summaries == []

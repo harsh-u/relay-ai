@@ -3,6 +3,7 @@ from datetime import datetime
 
 from backend.app.domain.conversation.message import ConversationMessage
 from backend.app.domain.conversation.scope import ConversationScope
+from backend.app.domain.conversation.summary import ConversationSummary
 
 
 class ConversationStore(ABC):
@@ -36,6 +37,19 @@ class ConversationStore(ABC):
         limit: int = 20,
     ) -> list[ConversationMessage]:
         """Return up to `limit` most recent messages, oldest first."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def list_recent_conversations(
+        self,
+        tenant_id: str,
+        business_id: str,
+        limit: int = 20,
+    ) -> list[ConversationSummary]:
+        """List this business's distinct conversations, most recently
+        active first, each with a preview of its last message - so a
+        conversation_id can be discovered (e.g. to review it) without
+        already knowing it."""
         raise NotImplementedError
 
     @abstractmethod

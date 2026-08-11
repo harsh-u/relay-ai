@@ -88,3 +88,20 @@ class ConversationHistoryResponse(BaseModel):
 
     conversation_id: str
     turns: list[ConversationTurnResponse]
+
+
+class ConversationSummaryResponse(BaseModel):
+    """A conversation's most recent activity - enough to recognize it and
+    decide whether to look at its full history."""
+
+    conversation_id: str
+    last_message_role: str = Field(description="'user' or 'assistant'.", examples=["user"])
+    last_message_text: str
+    last_message_at: datetime
+
+
+class ConversationListResponse(BaseModel):
+    """A business's most recently active conversations, for discovering a
+    conversation_id to review without already knowing it."""
+
+    conversations: list[ConversationSummaryResponse]

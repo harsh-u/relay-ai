@@ -108,3 +108,62 @@ def test_history_shows_a_semantic_match_with_similarity_and_matched_question(
     assert matched_turn["source"] == "knowledge:semantic_match"
     assert matched_turn["similarity"] == 1.0
     assert matched_turn["matched_question"] == original_question
+
+
+def test_list_conversations_is_empty_for_a_business_with_no_activity(client: TestClient) -> None:
+    response = client.get(
+        "/v1/conversations",
+        params={"tenant_id": TENANT_ID, "business_id": "00000000-0000-0000-0000-000000000099"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"conversations": []}
+
+
+def test_list_conversations_shows_recent_activity_for_discovery(client: TestClient) -> None:
+    conversation_id = "conversation-list-discovery"
+
+    client.post(
+        "/v1/inference",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
+            "conversation_id": conversation_id,
+            "text": "What are your hours?",
+        },
+    )
+
+    response = client.get(
+        "/v1/conversations",
+        params={"tenant_id": TENANT_ID, "business_id": BUSINESS_ID},
+    )
+
+    assert response.status_code == 200
+    conversations = response.json()["conversations"]
+    by_id = {c["conversation_id"]: c for c in conversations}
+    assert conversation_id in by_id
+    assert by_id[conversation_id]["last_message_role"] == "user"
+    assert by_id[conversation_id]["last_message_text"] == "What are your hours?"
+
+
+def test_list_conversations_respects_the_limit(client: TestClient) -> None:
+    business_id = "00000000-0000-0000-0000-000000000088"
+
+    for i in range(3):
+        client.post(
+            "/v1/inference",
+            json={
+                "tenant_id": TENANT_ID,
+                "business_id": business_id,
+                "conversation_id": f"conversation-list-limit-{i}",
+                "text": f"Question {i}",
+            },
+        )
+
+    response = client.get(
+        "/v1/conversations",
+        params={"tenant_id": TENANT_ID, "business_id": business_id, "limit": 2},
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()["conversations"]) == 2

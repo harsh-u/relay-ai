@@ -6,6 +6,8 @@ from backend.app.api.schemas.conversation import (
     AssistantMessageRequest,
     AssistantMessageResponse,
     ConversationHistoryResponse,
+    ConversationListResponse,
+    ConversationSummaryResponse,
     ConversationTurnResponse,
 )
 from backend.app.api.schemas.inference import (
@@ -160,6 +162,49 @@ async def record_assistant_message(
         conversation_id=conversation_id,
         stored=True,
         cached=cached,
+    )
+
+
+@router.get(
+    "/conversations",
+    response_model=ConversationListResponse,
+)
+async def list_conversations(
+    tenant_id: Annotated[
+        str, Query(min_length=1, description="The tenant this business belongs to.")
+    ],
+    business_id: Annotated[
+        str, Query(min_length=1, description="The business this call belongs to.")
+    ],
+    conversation_store: Annotated[
+        ConversationStore,
+        Depends(get_conversation_store),
+    ],
+    limit: Annotated[
+        int, Query(ge=1, le=100, description="Maximum number of conversations to return.")
+    ] = 20,
+) -> ConversationListResponse:
+    """List this business's most recently active conversations, each with a
+    preview of its last message - for discovering a conversation_id to look
+    up with GET /v1/conversations/{conversation_id}/history without already
+    knowing it."""
+
+    summaries = await conversation_store.list_recent_conversations(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        limit=limit,
+    )
+
+    return ConversationListResponse(
+        conversations=[
+            ConversationSummaryResponse(
+                conversation_id=summary.conversation_id,
+                last_message_role=summary.last_message_role,
+                last_message_text=summary.last_message_text,
+                last_message_at=summary.last_message_at,
+            )
+            for summary in summaries
+        ]
     )
 
 

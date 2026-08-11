@@ -537,12 +537,21 @@
       <!-- History tab -->
       <section id="history-tab" class="tab-content">
         <div class="card">
+          <h3>Recent conversations</h3>
+          <p style="font-size:12px; color:var(--muted); margin: 0 0 10px;">
+            This business's most recently active conversations. Click one to
+            review its transcript below - no need to already know its
+            conversation_id.
+          </p>
+          <div class="company-list" id="history-recent-list"></div>
+        </div>
+        <div class="card">
           <h3>Review a conversation</h3>
           <p style="font-size:12px; color:var(--muted); margin: 0 0 10px;">
-            Look up any conversation_id (defaults to the one currently active
-            on the Chat Tester tab) to see the full transcript, with each
-            caller turn annotated with how it was actually answered - even
-            after the live chat window is gone.
+            Or look up any conversation_id directly (defaults to the one
+            currently active on the Chat Tester tab) to see the full
+            transcript, with each caller turn annotated with how it was
+            actually answered - even after the live chat window is gone.
           </p>
           <div class="row">
             <div class="field grow">
@@ -729,6 +738,7 @@
     if (tab === "analytics") loadAnalytics();
     if (tab === "history") {
       el("history-conversation-id").value = state.conversationId;
+      loadRecentConversations();
       loadHistory();
     }
   }
@@ -1086,6 +1096,44 @@
   el("analytics-refresh-btn").addEventListener("click", loadAnalytics);
 
   // ---------- History ----------
+
+  async function loadRecentConversations() {
+    const list = el("history-recent-list");
+    list.innerHTML = '<p class="muted" style="font-size:13px;">Loading...</p>';
+    try {
+      const result = await api(
+        "/v1/conversations" + qs({ tenant_id: state.company.tenant_id, business_id: state.company.id })
+      );
+      list.innerHTML = "";
+      if (result.conversations.length === 0) {
+        list.innerHTML = '<p class="muted" style="font-size:13px;">No conversations yet.</p>';
+        return;
+      }
+      const activeId = el("history-conversation-id").value.trim();
+      for (const conversation of result.conversations) {
+        const item = document.createElement("div");
+        item.className = "company-item" + (conversation.conversation_id === activeId ? " active" : "");
+        const when = new Date(conversation.last_message_at).toLocaleString();
+        let preview = conversation.last_message_text;
+        if (preview.length > 80) preview = preview.slice(0, 80) + "…";
+        item.innerHTML = `
+          <div class="label">
+            ${escapeHtml(conversation.conversation_id)}
+            <div class="meta">${escapeHtml(conversation.last_message_role)} · ${escapeHtml(when)} · ${escapeHtml(preview)}</div>
+          </div>
+        `;
+        item.addEventListener("click", () => {
+          el("history-conversation-id").value = conversation.conversation_id;
+          loadHistory();
+          loadRecentConversations();
+        });
+        list.appendChild(item);
+      }
+    } catch (err) {
+      list.innerHTML = "";
+      toast("Failed to load recent conversations: " + err.message, true);
+    }
+  }
 
   async function loadHistory() {
     const conversationId = el("history-conversation-id").value.trim();

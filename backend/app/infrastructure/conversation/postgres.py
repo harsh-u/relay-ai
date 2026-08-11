@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.app.domain.conversation.message import ConversationMessage
 from backend.app.domain.conversation.scope import ConversationScope
 from backend.app.domain.conversation.store import ConversationStore
+from backend.app.domain.conversation.summary import ConversationSummary
 from backend.app.models.conversation_message import ConversationMessageModel
 
 
@@ -98,6 +99,46 @@ class PostgresConversationStore(ConversationStore):
                 created_at=message.created_at,
             )
             for message in reversed(messages)
+        ]
+
+    async def list_recent_conversations(
+        self,
+        tenant_id: str,
+        business_id: str,
+        limit: int = 20,
+    ) -> list[ConversationSummary]:
+        # DISTINCT ON (conversation_id), ordered within each group by
+        # created_at desc, keeps only that conversation's latest message.
+        latest_per_conversation = (
+            select(ConversationMessageModel)
+            .distinct(ConversationMessageModel.conversation_id)
+            .where(
+                ConversationMessageModel.tenant_id == UUID(tenant_id),
+                ConversationMessageModel.business_id == UUID(business_id),
+            )
+            .order_by(
+                ConversationMessageModel.conversation_id,
+                ConversationMessageModel.created_at.desc(),
+            )
+            .subquery()
+        )
+
+        statement = (
+            select(latest_per_conversation)
+            .order_by(latest_per_conversation.c.created_at.desc())
+            .limit(limit)
+        )
+
+        result = await self._session.execute(statement)
+
+        return [
+            ConversationSummary(
+                conversation_id=row.conversation_id,
+                last_message_role=row.role,
+                last_message_text=row.text,
+                last_message_at=row.created_at,
+            )
+            for row in result
         ]
 
     async def purge_expired(self, older_than: datetime) -> int:
