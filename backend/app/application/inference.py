@@ -59,6 +59,8 @@ class InferenceService:
                 action=response.action,
                 source=response.source,
                 intent=response.intent.value if response.intent is not None else None,
+                similarity=response.similarity,
+                matched_question=response.matched_question,
                 latency_ms=latency_ms,
                 created_at=datetime.now(UTC),
             )
@@ -126,9 +128,13 @@ class InferenceService:
                 intent=intent,
             )
 
-        return await self._match_answered_question(request)
+        return await self._match_answered_question(request, scope)
 
-    async def _match_answered_question(self, request: InferenceRequest) -> InferenceResponse:
+    async def _match_answered_question(
+        self,
+        request: InferenceRequest,
+        scope: ConversationScope,
+    ) -> InferenceResponse:
         """Reuse an earlier answer if this question means the same as one
         this business has already had answered before - by anyone, in any
         conversation - even if worded differently.
@@ -166,6 +172,11 @@ class InferenceService:
             answered_question, similarity = match
 
             if similarity >= self._semantic_match_threshold:
+                await self._conversation_store.save_assistant_response(
+                    scope=scope,
+                    text=answered_question.answer,
+                )
+
                 return InferenceResponse(
                     action=InferenceAction.RESPOND,
                     text=answered_question.answer,

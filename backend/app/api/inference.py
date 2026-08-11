@@ -1,10 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Depends, Path, Query
 
 from backend.app.api.schemas.conversation import (
     AssistantMessageRequest,
     AssistantMessageResponse,
+    ConversationHistoryResponse,
+    ConversationTurnResponse,
 )
 from backend.app.api.schemas.inference import (
     InferenceRequestBody,
@@ -15,6 +17,7 @@ from backend.app.application.inference import InferenceService
 from backend.app.config.settings import get_settings
 from backend.app.domain.analytics.repository import DecisionRepository
 from backend.app.domain.business.repository import BusinessSettingsRepository
+from backend.app.domain.conversation.scope import ConversationScope
 from backend.app.domain.conversation.store import ConversationStore
 from backend.app.domain.embedding.provider import EmbeddingProvider
 from backend.app.domain.inference import InferenceRequest
@@ -158,3 +161,63 @@ async def record_assistant_message(
         stored=True,
         cached=cached,
     )
+
+
+@router.get(
+    "/conversations/{conversation_id}/history",
+    response_model=ConversationHistoryResponse,
+)
+async def get_conversation_history(
+    conversation_id: Annotated[str, Path(description="The conversation to review.")],
+    tenant_id: Annotated[
+        str, Query(min_length=1, description="The tenant this business belongs to.")
+    ],
+    business_id: Annotated[
+        str, Query(min_length=1, description="The business this call belongs to.")
+    ],
+    conversation_store: Annotated[
+        ConversationStore,
+        Depends(get_conversation_store),
+    ],
+    decision_repository: Annotated[
+        DecisionRepository,
+        Depends(get_decision_repository),
+    ],
+) -> ConversationHistoryResponse:
+    """Review a conversation after the fact: the full transcript, with each
+    user turn annotated with how RelayAI decided to answer it (action,
+    source, similarity, and which cached question it was judged against) -
+    for seeing why an answer came out the way it did without needing to
+    watch it happen live or query the database directly."""
+
+    scope = ConversationScope(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        conversation_id=conversation_id,
+    )
+    messages = await conversation_store.get_recent_messages(scope=scope, limit=200)
+    decisions = await decision_repository.list_for_conversation(
+        tenant_id=tenant_id,
+        business_id=business_id,
+        conversation_id=conversation_id,
+    )
+    decision_iterator = iter(decisions)
+
+    turns = []
+    for message in messages:
+        decision = next(decision_iterator, None) if message.role == "user" else None
+
+        turns.append(
+            ConversationTurnResponse(
+                role=message.role,
+                text=message.text,
+                created_at=message.created_at,
+                action=decision.action.value if decision else None,
+                source=decision.source if decision else None,
+                intent=decision.intent if decision else None,
+                similarity=decision.similarity if decision else None,
+                matched_question=decision.matched_question if decision else None,
+            )
+        )
+
+    return ConversationHistoryResponse(conversation_id=conversation_id, turns=turns)

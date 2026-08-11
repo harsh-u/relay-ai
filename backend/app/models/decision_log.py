@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, func
+from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -13,6 +13,16 @@ class DecisionLogModel(Base):
     is avoided per business."""
 
     __tablename__ = "decision_log"
+
+    __table_args__ = (
+        Index(
+            "ix_decision_log_scope_created_at",
+            "tenant_id",
+            "business_id",
+            "conversation_id",
+            "created_at",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(
         PostgreSQLUUID(as_uuid=True),
@@ -40,6 +50,8 @@ class DecisionLogModel(Base):
     action: Mapped[str] = mapped_column(String(20), nullable=False)
     source: Mapped[str | None] = mapped_column(String(50), nullable=True)
     intent: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    similarity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    matched_question: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     latency_ms: Mapped[float] = mapped_column(Float, nullable=False)
 

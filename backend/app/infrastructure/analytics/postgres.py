@@ -23,11 +23,47 @@ class PostgresDecisionRepository(DecisionRepository):
             action=decision.action,
             source=decision.source,
             intent=decision.intent,
+            similarity=decision.similarity,
+            matched_question=decision.matched_question,
             latency_ms=decision.latency_ms,
         )
 
         self._session.add(row)
         await self._session.flush()
+
+    async def list_for_conversation(
+        self,
+        tenant_id: str,
+        business_id: str,
+        conversation_id: str,
+    ) -> list[DecisionRecord]:
+        statement = (
+            select(DecisionLogModel)
+            .where(
+                DecisionLogModel.tenant_id == UUID(tenant_id),
+                DecisionLogModel.business_id == UUID(business_id),
+                DecisionLogModel.conversation_id == conversation_id,
+            )
+            .order_by(DecisionLogModel.created_at.asc())
+        )
+        result = await self._session.execute(statement)
+
+        return [
+            DecisionRecord(
+                tenant_id=tenant_id,
+                business_id=business_id,
+                conversation_id=conversation_id,
+                agent_id=row.agent_id,
+                action=InferenceAction(row.action),
+                source=row.source,
+                intent=row.intent,
+                similarity=row.similarity,
+                matched_question=row.matched_question,
+                latency_ms=row.latency_ms,
+                created_at=row.created_at,
+            )
+            for row in result.scalars()
+        ]
 
     async def summarize(self, tenant_id: str, business_id: str) -> DecisionSummary:
         scope = (

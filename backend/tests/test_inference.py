@@ -513,6 +513,59 @@ def test_semantic_match_reuses_answer_for_rephrased_question(
     }
 
 
+def test_repeat_that_after_a_semantic_match_repeats_the_matched_answer_not_a_stale_one(
+    client: TestClient,
+    embedding_provider: FakeEmbeddingProvider,
+) -> None:
+    """A knowledge-cache hit is a real spoken turn - "repeat that" right
+    after one must repeat *that* answer, not something said earlier in the
+    same conversation. Regression test for a real bug: the cache-hit branch
+    never saved its answer as an assistant turn, so "repeat that" leaked
+    whatever the previous (unrelated) cached answer had been instead."""
+
+    first_question = "Do you accept Delta Dental insurance?"
+    first_answer = "Yes, we're in-network with Delta Dental PPO."
+    second_question = "What are your hours on Saturday?"
+    second_answer = "We're open 9am-2pm on Saturdays."
+    rephrased_first_question = "Is Delta Dental accepted here?"
+
+    embedding_provider.set_vector(first_question, [1.0, 0.0, 0.0])
+    embedding_provider.set_vector(second_question, [0.0, 1.0, 0.0])
+    embedding_provider.set_vector(rephrased_first_question, [1.0, 0.0, 0.0])
+
+    conversation_id = "conversation-repeat-after-match"
+
+    _ask_and_report_answer(client, conversation_id, first_question, first_answer)
+    _ask_and_report_answer(client, conversation_id, second_question, second_answer)
+
+    match_response = client.post(
+        "/v1/inference",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
+            "conversation_id": conversation_id,
+            "text": rephrased_first_question,
+        },
+    )
+    assert match_response.json()["source"] == "knowledge:semantic_match"
+    assert match_response.json()["text"] == first_answer
+
+    repeat_response = client.post(
+        "/v1/inference",
+        json={
+            "tenant_id": TENANT_ID,
+            "business_id": BUSINESS_ID,
+            "conversation_id": conversation_id,
+            "text": "Can you repeat that?",
+        },
+    )
+
+    assert repeat_response.status_code == 200
+    assert repeat_response.json()["action"] == "respond"
+    assert repeat_response.json()["source"] == "conversation:last_response"
+    assert repeat_response.json()["text"] == first_answer
+
+
 def test_fallback_reports_the_closest_cached_similarity_when_below_threshold(
     client: TestClient,
     embedding_provider: FakeEmbeddingProvider,

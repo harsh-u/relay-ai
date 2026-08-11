@@ -28,16 +28,24 @@ async def _create_tenant_and_business(session: AsyncSession) -> tuple[str, str]:
 
 
 def _record(
-    tenant_id: str, business_id: str, action: InferenceAction, source: str | None
+    tenant_id: str,
+    business_id: str,
+    action: InferenceAction,
+    source: str | None,
+    conversation_id: str = "conversation-1",
+    similarity: float | None = None,
+    matched_question: str | None = None,
 ) -> DecisionRecord:
     return DecisionRecord(
         tenant_id=tenant_id,
         business_id=business_id,
-        conversation_id="conversation-1",
+        conversation_id=conversation_id,
         agent_id="default",
         action=action,
         source=source,
         intent=None,
+        similarity=similarity,
+        matched_question=matched_question,
         latency_ms=1.5,
         created_at=datetime.now(UTC),
     )
@@ -94,3 +102,64 @@ async def test_summarize_is_isolated_to_its_business(db_session: AsyncSession) -
     summary = await repository.summarize(tenant_id=tenant_id, business_id=business_id_b)
 
     assert summary.total == 0
+
+
+async def test_list_for_conversation_returns_oldest_first_with_similarity_fields(
+    db_session: AsyncSession,
+) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresDecisionRepository(db_session)
+
+    await repository.record(
+        _record(
+            tenant_id,
+            business_id,
+            InferenceAction.FALLBACK,
+            None,
+            conversation_id="conversation-history",
+            similarity=0.6,
+            matched_question="an unrelated earlier question",
+        )
+    )
+    await repository.record(
+        _record(
+            tenant_id,
+            business_id,
+            InferenceAction.RESPOND,
+            "knowledge:semantic_match",
+            conversation_id="conversation-history",
+            similarity=0.95,
+            matched_question="do you accept delta dental",
+        )
+    )
+
+    decisions = await repository.list_for_conversation(
+        tenant_id=tenant_id, business_id=business_id, conversation_id="conversation-history"
+    )
+
+    assert [d.action for d in decisions] == [InferenceAction.FALLBACK, InferenceAction.RESPOND]
+    assert decisions[1].similarity == 0.95
+    assert decisions[1].matched_question == "do you accept delta dental"
+
+
+async def test_list_for_conversation_is_isolated_to_its_conversation(
+    db_session: AsyncSession,
+) -> None:
+    tenant_id, business_id = await _create_tenant_and_business(db_session)
+    repository = PostgresDecisionRepository(db_session)
+
+    await repository.record(
+        _record(
+            tenant_id,
+            business_id,
+            InferenceAction.RESPOND,
+            "builtin:greeting",
+            conversation_id="conversation-a",
+        )
+    )
+
+    decisions = await repository.list_for_conversation(
+        tenant_id=tenant_id, business_id=business_id, conversation_id="conversation-b"
+    )
+
+    assert decisions == []

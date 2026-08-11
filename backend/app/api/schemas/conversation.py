@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -41,3 +43,48 @@ class AssistantMessageResponse(BaseModel):
             "context) rather than a genuine unanswered business question."
         ),
     )
+
+
+class ConversationTurnResponse(BaseModel):
+    """One turn of a conversation - what was said, and for a user turn, how
+    RelayAI decided to answer it."""
+
+    role: str = Field(description="'user' or 'assistant'.", examples=["user"])
+    text: str
+    created_at: datetime
+    action: str | None = Field(
+        default=None,
+        description="'respond' or 'fallback' - only present for a 'user' turn.",
+        examples=["respond"],
+    )
+    source: str | None = Field(
+        default=None,
+        description="Which mechanism answered, if action was 'respond'.",
+        examples=["knowledge:semantic_match"],
+    )
+    intent: str | None = None
+    similarity: float | None = Field(
+        default=None,
+        description="Cosine similarity to the closest cached question considered, if any.",
+    )
+    matched_question: str | None = Field(
+        default=None,
+        description="The cached question compared against, if any.",
+    )
+
+
+class ConversationHistoryResponse(BaseModel):
+    """A conversation's full transcript, each user turn annotated with how
+    RelayAI decided to answer it - for reviewing after the fact how a real
+    or simulated call actually went, not just watching it live.
+
+    Turns are paired with their decision by position (Nth user turn <-> Nth
+    recorded decision), since a fallback on an empty/whitespace transcribed
+    turn is recorded as a decision without ever saving a user message - a
+    rare edge case that can shift the pairing by one for the rest of the
+    conversation. Good enough for review; not a source of truth for billing
+    or auditing.
+    """
+
+    conversation_id: str
+    turns: list[ConversationTurnResponse]

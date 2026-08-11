@@ -14,3 +14,14 @@ class DecisionRepository(ABC):
     @abstractmethod
     async def summarize(self, tenant_id: str, business_id: str) -> DecisionSummary:
         raise NotImplementedError
+
+    @abstractmethod
+    async def list_for_conversation(
+        self,
+        tenant_id: str,
+        business_id: str,
+        conversation_id: str,
+    ) -> list[DecisionRecord]:
+        """List every decision recorded for one conversation, oldest first -
+        for reviewing how each turn was actually answered after the fact."""
+        raise NotImplementedError

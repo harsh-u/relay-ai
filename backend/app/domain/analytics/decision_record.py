@@ -15,5 +15,7 @@ class DecisionRecord:
     action: InferenceAction
     source: str | None
     intent: str | None
+    similarity: float | None
+    matched_question: str | None
     latency_ms: float
     created_at: datetime

@@ -33,3 +33,17 @@ class InMemoryDecisionRepository(DecisionRepository):
             fallback_count=fallback_count,
             respond_by_source=respond_by_source,
         )
+
+    async def list_for_conversation(
+        self,
+        tenant_id: str,
+        business_id: str,
+        conversation_id: str,
+    ) -> list[DecisionRecord]:
+        return [
+            record
+            for record in self._records
+            if record.tenant_id == tenant_id
+            and record.business_id == business_id
+            and record.conversation_id == conversation_id
+        ]
