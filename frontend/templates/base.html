@@ -13,8 +13,8 @@
     <div class="inner">
       <a class="brand" href="/">RelayAI</a>
       <nav class="site-nav">
-        <a href="/docs">Docs</a>
         {% if current_user %}
+          <a href="/docs">Docs</a>
           <a href="/console">Console</a>
           <a href="/dashboard">Dashboard</a>
           <form method="post" action="/logout" style="display:inline;">
