@@ -510,6 +510,14 @@
   }
 
   async function api(path, options = {}) {
+    // /v1/me/* is session-cookie authenticated (this console page itself,
+    // and the company list/create/mint-key calls) - a 401 there means the
+    // login session really is gone. Every other /v1/* call here is
+    // Bearer-key authenticated per company - a 401 there just means no
+    // valid API key is stored for the selected company, which is a
+    // completely different, non-fatal situation and must NOT bounce the
+    // user to /login.
+    const isSessionEndpoint = path.startsWith("/v1/me/");
     const storedKey = state.company ? getStoredApiKey(state.company.id) : null;
     const authHeaders = storedKey ? { Authorization: `Bearer ${storedKey}` } : {};
     const response = await fetch(path, {
@@ -520,9 +528,13 @@
         ...(options.headers || {}),
       },
     });
-    if (response.status === 401 && !storedKey) {
-      window.location.href = "/login?next=/console";
-      throw new Error("Not signed in");
+    if (response.status === 401) {
+      if (isSessionEndpoint) {
+        window.location.href = "/login?next=/console";
+        throw new Error("Not signed in");
+      }
+      if (state.company) el("api-key-banner").style.display = "flex";
+      throw new Error("No valid API key for this company - paste one above, or mint a new one.");
     }
     if (!response.ok) {
       let detail = response.statusText;

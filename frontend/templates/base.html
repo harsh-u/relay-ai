@@ -15,7 +15,7 @@
       <a class="brand" href="{{ '/dashboard' if current_user else '/' }}">RelayAI</a>
       <nav class="site-nav">
         {% if current_user %}
-          <a href="/docs">Docs</a>
+          <a href="/docs" target="_blank" rel="noopener">Docs</a>
           <a href="/console">Console</a>
           <a href="/dashboard">Dashboard</a>
           <form method="post" action="/logout" style="display:inline;">

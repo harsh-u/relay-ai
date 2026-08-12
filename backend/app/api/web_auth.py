@@ -39,15 +39,32 @@ async def login_page(
     )
 
 
+def _safe_next_path(next_path: str | None) -> str:
+    """Only ever redirect to a same-site relative path - never follow an
+    absolute/protocol-relative URL some caller put in `next`, which would
+    be an open redirect."""
+    if next_path and next_path.startswith("/") and not next_path.startswith("//"):
+        return next_path
+
+    return "/dashboard"
+
+
 @router.get("/auth/{provider}/start")
 async def start_oauth(
     provider: str,
     request: Request,
     oauth: Annotated[OAuth, Depends(get_oauth_registry)],
     settings: Annotated[Settings, Depends(get_settings)],
+    next: Annotated[str | None, Query()] = None,
 ) -> object:
-    """Redirect to the provider's own consent screen."""
+    """Redirect to the provider's own consent screen. `next` (where to land
+    after a successful login) is stashed in the session now and read back
+    in the callback - it can't simply be appended to redirect_uri, since
+    providers match that value exactly against what's registered."""
     _require_known_provider(provider)
+
+    if next:
+        request.session["oauth_next"] = next
 
     redirect_uri = str(request.url_for("oauth_callback", provider=provider))
     if settings.app_env == "production" and redirect_uri.startswith("http://"):
@@ -98,8 +115,9 @@ async def oauth_callback(
         user = await user_repository.create(email=email, provider=provider, subject=subject)
 
     request.session["user_id"] = user.id
+    next_path = _safe_next_path(request.session.pop("oauth_next", None))
 
-    return RedirectResponse(url="/dashboard", status_code=302)
+    return RedirectResponse(url=next_path, status_code=302)
 
 
 @router.post("/logout")

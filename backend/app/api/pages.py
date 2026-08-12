@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import RedirectResponse
 
 from backend.app.domain.users.user import User
 from backend.app.infrastructure.users.dependencies import (
@@ -17,7 +18,12 @@ async def homepage(
     request: Request,
     current_user: Annotated[User | None, Depends(get_current_user_or_none)],
 ) -> object:
-    """The marketing landing page - public, no login required."""
+    """The marketing landing page - public, no login required. A
+    signed-in user has no reason to see it again on every visit to the
+    bare domain, so send them straight to their dashboard instead."""
+    if current_user is not None:
+        return RedirectResponse(url="/dashboard", status_code=302)
+
     return templates.TemplateResponse(request, "index.html", {"current_user": current_user})
 
 

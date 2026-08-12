@@ -46,6 +46,15 @@ def test_homepage_renders_without_login(client: TestClient) -> None:
     assert response.status_code == 200
 
 
+def test_homepage_redirects_to_dashboard_when_signed_in(authenticated_client) -> None:
+    client, _ = authenticated_client
+
+    response = client.get("/", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert response.headers["location"] == "/dashboard"
+
+
 def test_dashboard_redirects_to_login_when_not_signed_in(client: TestClient) -> None:
     response = client.get("/dashboard", follow_redirects=False)
 
@@ -101,6 +110,38 @@ def test_oauth_callback_reuses_the_same_user_on_a_second_login(client: TestClien
         _clear_oauth_override()
 
     assert first_dashboard == second_dashboard
+
+
+def test_oauth_start_stores_next_and_callback_redirects_there(client: TestClient) -> None:
+    token = {"userinfo": {"email": "harsh.raj@screen-magic.com", "sub": "google-sub-next"}}
+    _override_oauth(token)
+    try:
+        # follow_redirects=False: TestClient follows redirects by default,
+        # which would immediately chase the fake authorize_redirect straight
+        # into the callback within this same call, consuming oauth_next
+        # before the test gets to make its own separate callback request.
+        client.get("/auth/google/start?next=/console", follow_redirects=False)
+        response = client.get("/auth/google/callback?code=fake-code", follow_redirects=False)
+    finally:
+        _clear_oauth_override()
+
+    assert response.status_code == 302
+    assert response.headers["location"] == "/console"
+
+
+def test_oauth_callback_ignores_an_unsafe_next_path(client: TestClient) -> None:
+    """`next` must only ever be a same-site relative path - an absolute
+    URL would be an open redirect."""
+    token = {"userinfo": {"email": "harsh.raj@screen-magic.com", "sub": "google-sub-unsafe"}}
+    _override_oauth(token)
+    try:
+        client.get("/auth/google/start?next=https://evil.example.com", follow_redirects=False)
+        response = client.get("/auth/google/callback?code=fake-code", follow_redirects=False)
+    finally:
+        _clear_oauth_override()
+
+    assert response.status_code == 302
+    assert response.headers["location"] == "/dashboard"
 
 
 def test_unknown_provider_is_rejected(client: TestClient) -> None:
