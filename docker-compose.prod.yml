@@ -1,0 +1,44 @@
+# Production deployment on the shared home-lab server (alongside
+# convoxio-v2) - a distinct stack, distinct host ports (8002/5434) so it
+# doesn't collide with convoxio-v2's own containers (8001/3001/5433).
+#
+# Secrets (POSTGRES_PASSWORD, SESSION_SECRET_KEY, OAuth client
+# id/secret, BETA_ALLOWLIST_EMAILS) live in .env next to this file on the
+# server, never committed.
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8002:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://relayai:${POSTGRES_PASSWORD}@postgres:5432/relayai
+      APP_ENV: production
+    volumes:
+      - ./models:/app/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: relayai-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: relayai
+      POSTGRES_USER: relayai
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5434:5432"
+    volumes:
+      - relayai_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U relayai -d relayai"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  relayai_postgres_data:
