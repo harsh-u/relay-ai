@@ -73,3 +73,48 @@ async def test_delete_only_removes_the_targeted_company() -> None:
 
     remaining = await repository.list_all()
     assert [company.id for company in remaining] == [second.id]
+
+
+async def test_create_without_an_owner_leaves_owner_user_id_none() -> None:
+    repository = InMemoryCompanyRepository()
+
+    company = await repository.create(name="Bright Smile Dental")
+
+    assert company.owner_user_id is None
+
+
+async def test_create_with_an_owner_records_it() -> None:
+    repository = InMemoryCompanyRepository()
+
+    company = await repository.create(name="Bright Smile Dental", owner_user_id="user-1")
+
+    assert company.owner_user_id == "user-1"
+
+
+async def test_list_for_owner_returns_only_that_owners_companies() -> None:
+    repository = InMemoryCompanyRepository()
+    owned = await repository.create(name="Owned Co", owner_user_id="user-1")
+    await repository.create(name="Someone Else's Co", owner_user_id="user-2")
+    await repository.create(name="Unowned Co")
+
+    companies = await repository.list_for_owner("user-1")
+
+    assert [company.id for company in companies] == [owned.id]
+
+
+async def test_list_for_owner_orders_newest_first() -> None:
+    repository = InMemoryCompanyRepository()
+    first = await repository.create(name="First", owner_user_id="user-1")
+    second = await repository.create(name="Second", owner_user_id="user-1")
+
+    companies = await repository.list_for_owner("user-1")
+
+    assert [company.id for company in companies] == [second.id, first.id]
+
+
+async def test_list_for_owner_is_empty_for_an_owner_with_no_companies() -> None:
+    repository = InMemoryCompanyRepository()
+
+    companies = await repository.list_for_owner("nobody")
+
+    assert companies == []

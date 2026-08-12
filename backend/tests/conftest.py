@@ -17,6 +17,7 @@ from backend.app.domain.conversation.store import ConversationStore
 from backend.app.domain.embedding.provider import EmbeddingProvider
 from backend.app.domain.knowledge.repository import AnsweredQuestionRepository
 from backend.app.domain.matching.pattern_repository import IntentPatternRepository
+from backend.app.domain.users.user import User
 from backend.app.infrastructure.analytics.dependencies import get_decision_repository
 from backend.app.infrastructure.analytics.in_memory import InMemoryDecisionRepository
 from backend.app.infrastructure.auth.dependencies import (
@@ -40,6 +41,11 @@ from backend.app.infrastructure.matching.dependencies import get_intent_pattern_
 from backend.app.infrastructure.matching.in_memory_patterns import (
     InMemoryIntentPatternRepository,
 )
+from backend.app.infrastructure.users.dependencies import (
+    get_current_user_or_none,
+    get_user_repository,
+)
+from backend.app.infrastructure.users.in_memory import InMemoryUserRepository
 from backend.app.main import app
 
 _test_bearer_scheme = HTTPBearer(auto_error=False)
@@ -103,6 +109,11 @@ def api_key_repository() -> InMemoryApiKeyRepository:
 
 
 @pytest.fixture
+def user_repository() -> InMemoryUserRepository:
+    return InMemoryUserRepository()
+
+
+@pytest.fixture
 def client(
     conversation_store: ConversationStore,
     pattern_repository: IntentPatternRepository,
@@ -112,6 +123,7 @@ def client(
     decision_repository: DecisionRepository,
     company_repository: CompanyRepository,
     api_key_repository: ApiKeyRepository,
+    user_repository: InMemoryUserRepository,
 ) -> Iterator[TestClient]:
     """API test client backed by isolated in-memory/fake stores.
 
@@ -153,6 +165,9 @@ def client(
     async def _get_test_api_keys() -> ApiKeyRepository:
         return api_key_repository
 
+    async def _get_test_users() -> InMemoryUserRepository:
+        return user_repository
+
     app.dependency_overrides[get_conversation_store] = _get_test_store
     app.dependency_overrides[get_intent_pattern_repository] = _get_test_patterns
     app.dependency_overrides[get_embedding_provider] = _get_test_embeddings
@@ -161,6 +176,7 @@ def client(
     app.dependency_overrides[get_decision_repository] = _get_test_decisions
     app.dependency_overrides[get_company_repository] = _get_test_companies
     app.dependency_overrides[get_api_key_repository] = _get_test_api_keys
+    app.dependency_overrides[get_user_repository] = _get_test_users
     app.dependency_overrides[get_authenticated_tenant_id] = _fake_authenticated_tenant_id
     try:
         yield TestClient(app)
@@ -173,7 +189,33 @@ def client(
         del app.dependency_overrides[get_decision_repository]
         del app.dependency_overrides[get_company_repository]
         del app.dependency_overrides[get_api_key_repository]
+        del app.dependency_overrides[get_user_repository]
         del app.dependency_overrides[get_authenticated_tenant_id]
+
+
+@pytest.fixture
+async def authenticated_client(
+    client: TestClient,
+    user_repository: InMemoryUserRepository,
+) -> AsyncIterator[tuple[TestClient, User]]:
+    """Like `client`, but with a fake signed-in human user - overrides
+    get_current_user_or_none directly (the shared sub-dependency behind
+    both require_current_user_for_page and require_current_user_for_api)
+    rather than going through a real OAuth login + session cookie, which
+    would need a live provider. Yields (client, user)."""
+
+    user = await user_repository.create(
+        email="test@example.com", provider="google", subject="test-sub"
+    )
+
+    async def _fake_current_user() -> User:
+        return user
+
+    app.dependency_overrides[get_current_user_or_none] = _fake_current_user
+    try:
+        yield client, user
+    finally:
+        del app.dependency_overrides[get_current_user_or_none]
 
 
 @pytest.fixture

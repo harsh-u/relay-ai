@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}RelayAI{% endblock %}</title>
+  <meta name="description" content="{% block description %}RelayAI is an AI inference gateway for voice platforms - answer callers without an LLM round-trip whenever you can.{% endblock %}" />
+  <link rel="stylesheet" href="/static/site.css" />
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header class="site-header">
+    <div class="inner">
+      <a class="brand" href="/">RelayAI</a>
+      <nav class="site-nav">
+        <a href="/docs">Docs</a>
+        {% if current_user %}
+          <a href="/console">Console</a>
+          <a href="/dashboard">Dashboard</a>
+          <form method="post" action="/logout" style="display:inline;">
+            <button type="submit" class="btn" style="padding:6px 12px; font-size:13px;">Sign out</button>
+          </form>
+        {% else %}
+          <a href="/login" class="btn btn-primary" style="padding:6px 14px; font-size:13px;">Sign in</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    RelayAI - an AI inference gateway for voice platforms.
+  </footer>
+</body>
+</html>

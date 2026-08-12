@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}RelayAI - Answer callers without an LLM round-trip{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Say it once. Answer it forever.</h1>
+  <p>
+    RelayAI sits in front of your voice agent's LLM and answers what it
+    already knows how to answer - greetings, repeats, FAQs your callers
+    ask over and over - without a single extra LLM call.
+  </p>
+  <a class="btn btn-primary" href="/login">Get your API key</a>
+</section>
+
+<section class="feature-grid">
+  <div class="card">
+    <h3>Semantic knowledge cache</h3>
+    <p>Once one caller's question gets answered, every future caller who asks something similar gets the same answer instantly - no LLM call, no repeat cost.</p>
+  </div>
+  <div class="card">
+    <h3>Conversation-aware</h3>
+    <p>RelayAI tracks what's already been said in a call, so it never replays a stale answer to a question the caller already moved past.</p>
+  </div>
+  <div class="card">
+    <h3>Full decision history</h3>
+    <p>Review any conversation after the fact and see exactly how each answer was decided - built locally, or handed off to your LLM.</p>
+  </div>
+  <div class="card">
+    <h3>Drop-in API</h3>
+    <p>One inference call per turn. Respond directly, or fall back to your own LLM exactly as before - RelayAI never gets in the way.</p>
+  </div>
+</section>
+
+<section style="margin-top:64px;">
+  <div class="card">
+    <span class="tag" style="margin-bottom:12px; display:inline-block;">Coming soon</span>
+    <h2 style="margin-top:0;">VoiceCache - say it once, play it forever</h2>
+    <p class="muted">
+      Voice agents repeat themselves constantly - greetings, tool-call
+      filler, confirmations, FAQ answers. VoiceCache caches the
+      synthesized audio for those exact lines, so a repeated line skips
+      your TTS provider entirely and streams back instantly, at zero
+      synthesis cost. Provider-agnostic, drop-in, no rework to how your
+      agent decides what to say.
+    </p>
+  </div>
+</section>
+{% endblock %}

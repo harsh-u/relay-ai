@@ -5,6 +5,7 @@ from backend.app.models.conversation_message import ConversationMessageModel
 from backend.app.models.decision_log import DecisionLogModel
 from backend.app.models.intent_pattern import IntentPatternModel
 from backend.app.models.tenant import Tenant
+from backend.app.models.user import UserModel
 
 __all__ = [
     "AnsweredQuestionModel",
@@ -14,4 +15,5 @@ __all__ = [
     "DecisionLogModel",
     "IntentPatternModel",
     "Tenant",
+    "UserModel",
 ]

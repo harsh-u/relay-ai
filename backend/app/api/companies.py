@@ -8,6 +8,7 @@ from backend.app.api.schemas.companies import (
     DeleteCompanyResponse,
     ListCompaniesResponse,
 )
+from backend.app.application.onboarding import CompanyOnboardingService
 from backend.app.domain.auth.repository import ApiKeyRepository
 from backend.app.domain.business.company import Company
 from backend.app.domain.business.company_repository import CompanyRepository
@@ -55,8 +56,8 @@ async def create_company(
     shown exactly once, here. Every other RelayAI endpoint requires it as
     'Authorization: Bearer <api_key>'."""
 
-    company = await company_repository.create(name=request.name)
-    _, raw_api_key = await api_key_repository.create(tenant_id=company.tenant_id)
+    onboarding_service = CompanyOnboardingService(company_repository, api_key_repository)
+    company, raw_api_key = await onboarding_service.create_company_with_key(name=request.name)
 
     return _to_response(company, api_key=raw_api_key)
 

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Beta access required - RelayAI{% endblock %}
+{% block content %}
+<div class="center-page">
+  <div class="card auth-card">
+    <h1>You're not on the beta list yet</h1>
+    <p>
+      RelayAI is currently in a closed beta. {{ email }} isn't on the
+      allowlist yet - contact the administrator to request access, then
+      try signing in again.
+    </p>
+    <a class="btn btn-primary" href="/login" style="width:100%; justify-content:center;">Back to sign in</a>
+  </div>
+</div>
+{% endblock %}

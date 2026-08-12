@@ -15,6 +15,7 @@ from backend.app.models import (  # noqa: F401
     DecisionLogModel,
     IntentPatternModel,
     Tenant,
+    UserModel,
 )
 
 config = context.config

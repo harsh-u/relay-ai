@@ -9,12 +9,21 @@ class CompanyRepository(ABC):
     multi-tenancy directly."""
 
     @abstractmethod
-    async def create(self, name: str) -> Company:
+    async def create(self, name: str, owner_user_id: str | None = None) -> Company:
+        """Create a company. `owner_user_id` is None for companies created
+        through the open internal panel/API (unowned); set it when a
+        logged-in human user creates their own company via the
+        session-authenticated dashboard."""
         raise NotImplementedError
 
     @abstractmethod
     async def list_all(self) -> list[Company]:
         """List every company, newest first."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def list_for_owner(self, owner_user_id: str) -> list[Company]:
+        """List only the companies owned by this user, newest first."""
         raise NotImplementedError
 
     @abstractmethod

@@ -17,6 +17,7 @@ class Company:
     knowledge_scope: KnowledgeScope
     knowledge_ttl_days: int
     created_at: datetime
+    owner_user_id: str | None = None
 
 
 def slugify(name: str) -> str:

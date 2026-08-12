@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Sign in - RelayAI{% endblock %}
+{% block content %}
+<div class="center-page">
+  <div class="card auth-card">
+    <h1>Sign in to RelayAI</h1>
+    <p>RelayAI is currently in a closed beta. Sign in with an allowlisted Google or GitHub account.</p>
+    <div class="oauth-buttons">
+      <a class="btn" href="/auth/google/start{% if next %}?next={{ next }}{% endif %}">Continue with Google</a>
+      <a class="btn" href="/auth/github/start{% if next %}?next={{ next }}{% endif %}">Continue with GitHub</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -21,6 +21,13 @@ class Settings(BaseSettings):
     knowledge_cache_ttl_days: int = 30
     conversation_message_ttl_hours: int = 48
 
+    session_secret_key: str = "dev-only-insecure-session-secret-change-me"
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    github_client_id: str = ""
+    github_client_secret: str = ""
+    beta_allowlist_emails: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

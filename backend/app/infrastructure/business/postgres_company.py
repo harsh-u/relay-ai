@@ -19,10 +19,14 @@ class PostgresCompanyRepository(CompanyRepository):
         self._session = session
         self._default_ttl_days = default_ttl_days
 
-    async def create(self, name: str) -> Company:
+    async def create(self, name: str, owner_user_id: str | None = None) -> Company:
         slug = f"{slugify(name)}-{uuid4().hex[:6]}"
 
-        tenant = Tenant(name=name, slug=slug)
+        tenant = Tenant(
+            name=name,
+            slug=slug,
+            owner_user_id=UUID(owner_user_id) if owner_user_id is not None else None,
+        )
         self._session.add(tenant)
         await self._session.flush()
 
@@ -30,10 +34,21 @@ class PostgresCompanyRepository(CompanyRepository):
         self._session.add(business)
         await self._session.flush()
 
-        return self._to_company(business)
+        return self._to_company(business, tenant)
 
     async def list_all(self) -> list[Company]:
         statement = select(Business).order_by(Business.created_at.desc())
+        result = await self._session.execute(statement)
+
+        return [self._to_company(business) for business in result.scalars()]
+
+    async def list_for_owner(self, owner_user_id: str) -> list[Company]:
+        statement = (
+            select(Business)
+            .join(Tenant, Tenant.id == Business.tenant_id)
+            .where(Tenant.owner_user_id == UUID(owner_user_id))
+            .order_by(Business.created_at.desc())
+        )
         result = await self._session.execute(statement)
 
         return [self._to_company(business) for business in result.scalars()]
@@ -61,7 +76,7 @@ class PostgresCompanyRepository(CompanyRepository):
 
         return True
 
-    def _to_company(self, business: Business) -> Company:
+    def _to_company(self, business: Business, tenant: Tenant | None = None) -> Company:
         return Company(
             id=str(business.id),
             tenant_id=str(business.tenant_id),
@@ -74,4 +89,9 @@ class PostgresCompanyRepository(CompanyRepository):
                 else self._default_ttl_days
             ),
             created_at=business.created_at,
+            owner_user_id=(
+                str(tenant.owner_user_id)
+                if tenant is not None and tenant.owner_user_id is not None
+                else None
+            ),
         )

@@ -5,8 +5,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.domain.business.knowledge_scope import KnowledgeScope
 from backend.app.infrastructure.business.postgres_company import PostgresCompanyRepository
+from backend.app.infrastructure.users.postgres import PostgresUserRepository
 from backend.app.models.business import Business
 from backend.app.models.tenant import Tenant
+
+
+async def _create_user(session: AsyncSession, subject: str) -> str:
+    user = await PostgresUserRepository(session).create(
+        email=f"{subject}@example.com", provider="google", subject=subject
+    )
+    return user.id
 
 
 async def test_create_persists_a_tenant_and_business_pair(db_session: AsyncSession) -> None:
@@ -116,3 +124,47 @@ async def test_delete_keeps_the_tenant_when_it_has_other_businesses(
         select(Business).where(Business.id == sibling_business.id)
     )
     assert remaining_businesses.scalar_one_or_none() is not None
+
+
+async def test_create_without_an_owner_leaves_owner_user_id_none(db_session: AsyncSession) -> None:
+    repository = PostgresCompanyRepository(db_session, default_ttl_days=30)
+
+    company = await repository.create(name="Bright Smile Dental")
+
+    assert company.owner_user_id is None
+
+
+async def test_create_with_an_owner_records_it(db_session: AsyncSession) -> None:
+    owner_id = await _create_user(db_session, "owner-1")
+    repository = PostgresCompanyRepository(db_session, default_ttl_days=30)
+
+    company = await repository.create(name="Bright Smile Dental", owner_user_id=owner_id)
+
+    assert company.owner_user_id == owner_id
+
+
+async def test_list_for_owner_returns_only_that_owners_companies(
+    db_session: AsyncSession,
+) -> None:
+    owner_id = await _create_user(db_session, "owner-2")
+    other_owner_id = await _create_user(db_session, "owner-3")
+    repository = PostgresCompanyRepository(db_session, default_ttl_days=30)
+
+    owned = await repository.create(name="Owned Co", owner_user_id=owner_id)
+    await repository.create(name="Someone Else's Co", owner_user_id=other_owner_id)
+    await repository.create(name="Unowned Co")
+
+    companies = await repository.list_for_owner(owner_id)
+
+    assert [company.id for company in companies] == [owned.id]
+
+
+async def test_list_for_owner_is_empty_for_an_owner_with_no_companies(
+    db_session: AsyncSession,
+) -> None:
+    owner_id = await _create_user(db_session, "owner-4")
+    repository = PostgresCompanyRepository(db_session, default_ttl_days=30)
+
+    companies = await repository.list_for_owner(owner_id)
+
+    assert companies == []

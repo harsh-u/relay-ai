@@ -11,7 +11,7 @@ class InMemoryCompanyRepository(CompanyRepository):
         self._default_ttl_days = default_ttl_days
         self._companies: list[Company] = []
 
-    async def create(self, name: str) -> Company:
+    async def create(self, name: str, owner_user_id: str | None = None) -> Company:
         company = Company(
             id=str(uuid4()),
             tenant_id=str(uuid4()),
@@ -20,12 +20,17 @@ class InMemoryCompanyRepository(CompanyRepository):
             knowledge_scope=KnowledgeScope.SHARED,
             knowledge_ttl_days=self._default_ttl_days,
             created_at=datetime.now(UTC),
+            owner_user_id=owner_user_id,
         )
         self._companies.append(company)
         return company
 
     async def list_all(self) -> list[Company]:
         return sorted(self._companies, key=lambda company: company.created_at, reverse=True)
+
+    async def list_for_owner(self, owner_user_id: str) -> list[Company]:
+        owned = [c for c in self._companies if c.owner_user_id == owner_user_id]
+        return sorted(owned, key=lambda company: company.created_at, reverse=True)
 
     async def delete(self, business_id: str) -> bool:
         for index, company in enumerate(self._companies):
