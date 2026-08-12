@@ -1,11 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Path, status
 
 from backend.app.api.schemas.companies import (
     CompanyResponse,
     CreateCompanyRequest,
     ListCompaniesResponse,
+    MintApiKeyResponse,
 )
 from backend.app.application.onboarding import CompanyOnboardingService
 from backend.app.domain.auth.repository import ApiKeyRepository
@@ -72,3 +73,31 @@ async def create_my_company(
     )
 
     return _to_response(company, api_key=raw_api_key)
+
+
+@router.post("/companies/{business_id}/keys", response_model=MintApiKeyResponse)
+async def mint_company_api_key(
+    business_id: Annotated[str, Path(description="The company's business_id.")],
+    current_user: Annotated[User, Depends(require_current_user_for_api)],
+    company_repository: Annotated[CompanyRepository, Depends(get_company_repository)],
+    api_key_repository: Annotated[ApiKeyRepository, Depends(get_api_key_repository)],
+) -> MintApiKeyResponse:
+    """Mint an additional API key for a company the signed-in user already
+    owns - the escape hatch for a lost key, since the original (like every
+    key) is never retrievable again after its one-time reveal."""
+
+    company = await company_repository.get_by_id(business_id)
+
+    if company is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found.")
+
+    if company.owner_user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your company.")
+
+    api_key, raw_api_key = await api_key_repository.create(tenant_id=company.tenant_id)
+
+    return MintApiKeyResponse(
+        api_key=raw_api_key,
+        key_prefix=api_key.key_prefix,
+        created_at=api_key.created_at,
+    )

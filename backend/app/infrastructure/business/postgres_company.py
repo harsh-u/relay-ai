@@ -53,6 +53,21 @@ class PostgresCompanyRepository(CompanyRepository):
 
         return [self._to_company(business) for business in result.scalars()]
 
+    async def get_by_id(self, business_id: str) -> Company | None:
+        statement = (
+            select(Business, Tenant)
+            .join(Tenant, Tenant.id == Business.tenant_id)
+            .where(Business.id == UUID(business_id))
+        )
+        result = await self._session.execute(statement)
+        row = result.first()
+
+        if row is None:
+            return None
+
+        business, tenant = row
+        return self._to_company(business, tenant)
+
     async def delete(self, business_id: str) -> bool:
         business = await self._session.get(Business, UUID(business_id))
 

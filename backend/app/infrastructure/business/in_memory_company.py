@@ -32,6 +32,13 @@ class InMemoryCompanyRepository(CompanyRepository):
         owned = [c for c in self._companies if c.owner_user_id == owner_user_id]
         return sorted(owned, key=lambda company: company.created_at, reverse=True)
 
+    async def get_by_id(self, business_id: str) -> Company | None:
+        for company in self._companies:
+            if company.id == business_id:
+                return company
+
+        return None
+
     async def delete(self, business_id: str) -> bool:
         for index, company in enumerate(self._companies):
             if company.id == business_id:

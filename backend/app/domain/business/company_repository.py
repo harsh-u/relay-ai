@@ -27,6 +27,12 @@ class CompanyRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def get_by_id(self, business_id: str) -> Company | None:
+        """Look up a single company by its business id, or None if no
+        such company exists."""
+        raise NotImplementedError
+
+    @abstractmethod
     async def delete(self, business_id: str) -> bool:
         """Delete a company's business, and its tenant too if this was that
         tenant's only business (the common case, for a company created via

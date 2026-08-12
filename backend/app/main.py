@@ -7,6 +7,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from backend.app.api.analytics import router as analytics_router
 from backend.app.api.companies import router as companies_router
+from backend.app.api.docs import router as docs_router
 from backend.app.api.health import router as health_router
 from backend.app.api.inference import router as inference_router
 from backend.app.api.knowledge import router as knowledge_router
@@ -29,6 +30,9 @@ def create_application() -> FastAPI:
         title=settings.app_name,
         version="0.1.0",
         description="AI inference gateway for voice AI platforms.",
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
     )
 
     application.add_middleware(SessionMiddleware, secret_key=settings.session_secret_key)
@@ -46,6 +50,7 @@ def create_application() -> FastAPI:
     application.include_router(me_router)
     application.include_router(web_auth_router)
     application.include_router(pages_router)
+    application.include_router(docs_router)
 
     if STATIC_DIR.is_dir():
         application.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

@@ -5,33 +5,39 @@
   <div>
     <h1 style="margin-bottom:4px;">Your companies</h1>
     <p class="muted" style="margin-top:0;">Signed in as {{ current_user.email }}.</p>
+    <span class="stat-chip" id="company-count-chip" style="display:none;"></span>
   </div>
 
-  <div class="card">
-    <h3 style="margin-top:0;">Create a company</h3>
-    <p class="muted" style="font-size:13px;">
-      A company is one tenant + one business. Creating it mints your API key -
-      shown exactly once, right after creation. Copy it somewhere safe.
-    </p>
-    <form id="create-company-form" class="stack" style="max-width:420px;">
-      <div class="field">
-        <label for="company-name">Company name</label>
-        <input type="text" id="company-name" required placeholder="Acme Dental" />
-      </div>
-      <button type="submit" class="btn btn-primary">Create company</button>
-    </form>
-    <div id="new-api-key" style="display:none; margin-top:16px;">
-      <p class="muted" style="font-size:13px; margin-bottom:6px;">
-        Your API key (shown once - copy it now):
+  <div class="dashboard-grid">
+    <div class="card">
+      <h3 style="margin-top:0;">Create a company</h3>
+      <p class="muted" style="font-size:13px;">
+        A company is one tenant + one business. Creating it mints your API key -
+        shown exactly once, right after creation. Copy it somewhere safe.
       </p>
-      <div class="api-key-reveal" id="new-api-key-value"></div>
+      <form id="create-company-form" class="stack">
+        <div class="field">
+          <label for="company-name">Company name</label>
+          <input type="text" id="company-name" required placeholder="Acme Dental" />
+        </div>
+        <button type="submit" class="btn btn-primary">Create company</button>
+      </form>
+      <div id="new-api-key" style="display:none; margin-top:16px;">
+        <p class="muted" style="font-size:13px; margin-bottom:6px;">
+          Your API key (shown once - copy it now):
+        </p>
+        <div class="api-key-reveal">
+          <span id="new-api-key-value"></span>
+          <button type="button" class="btn copy-btn" data-copy-target="new-api-key-value">Copy</button>
+        </div>
+      </div>
     </div>
-  </div>
 
-  <div class="card">
-    <h3 style="margin-top:0;">Companies</h3>
-    <div class="company-list" id="company-list">
-      <p class="muted">Loading...</p>
+    <div class="card">
+      <h3 style="margin-top:0;">Companies</h3>
+      <div class="company-list" id="company-list">
+        <p class="muted">Loading...</p>
+      </div>
     </div>
   </div>
 </div>
@@ -63,21 +69,53 @@
     return div.innerHTML;
   }
 
+  function copyToClipboard(text, button) {
+    navigator.clipboard.writeText(text).then(() => {
+      const original = button.textContent;
+      button.textContent = "Copied!";
+      setTimeout(() => { button.textContent = original; }, 1500);
+    });
+  }
+
+  document.addEventListener("click", (e) => {
+    const button = e.target.closest(".copy-btn");
+    if (!button) return;
+    const target = document.getElementById(button.dataset.copyTarget);
+    if (target) copyToClipboard(target.textContent, button);
+  });
+
   async function loadCompanies() {
     const list = document.getElementById("company-list");
+    const chip = document.getElementById("company-count-chip");
     try {
       const data = await api("/v1/me/companies");
+      chip.style.display = "inline-flex";
+      chip.textContent = data.companies.length === 1
+        ? "1 company"
+        : `${data.companies.length} companies`;
+
       if (data.companies.length === 0) {
-        list.innerHTML = '<p class="muted">No companies yet - create your first one above.</p>';
+        list.innerHTML = `
+          <div class="empty-companies">
+            <p>No companies yet.</p>
+            <p class="muted" style="font-size:13px;">Create your first one to get an API key.</p>
+          </div>
+        `;
         return;
       }
       list.innerHTML = data.companies.map((c) => `
         <div class="company-row">
-          <div>
-            <div>${escapeHtml(c.name)}</div>
-            <div class="meta">business_id: ${c.id}</div>
+          <div class="company-row-top">
+            <div>
+              <div>${escapeHtml(c.name)}</div>
+              <div class="meta">business_id: ${c.id}</div>
+            </div>
+            <div class="company-row-actions">
+              <span class="tag">${c.knowledge_scope}</span>
+              <button type="button" class="btn mint-key-btn" style="padding:6px 12px; font-size:13px;" data-company-id="${c.id}" data-company-name="${escapeHtml(c.name)}">New API key</button>
+            </div>
           </div>
-          <span class="tag">${c.knowledge_scope}</span>
+          <div class="new-key-reveal" data-company-id="${c.id}" style="display:none;"></div>
         </div>
       `).join("");
     } catch (err) {
@@ -103,6 +141,37 @@
       await loadCompanies();
     } catch (err) {
       alert("Failed to create company: " + err.message);
+    }
+  });
+
+  document.getElementById("company-list").addEventListener("click", async (e) => {
+    const button = e.target.closest(".mint-key-btn");
+    if (!button) return;
+    const companyId = button.dataset.companyId;
+    const companyName = button.dataset.companyName;
+    if (!confirm(`Mint a new API key for "${companyName}"? The old key stays valid - this adds another one.`)) {
+      return;
+    }
+    button.disabled = true;
+    try {
+      const result = await api(`/v1/me/companies/${encodeURIComponent(companyId)}/keys`, {
+        method: "POST",
+      });
+      const reveal = document.querySelector(`.new-key-reveal[data-company-id="${companyId}"]`);
+      reveal.style.display = "block";
+      reveal.innerHTML = `
+        <p class="muted" style="font-size:13px; margin-bottom:6px;">New API key (shown once - copy it now):</p>
+        <div class="api-key-reveal">
+          <span class="new-key-value">${escapeHtml(result.api_key)}</span>
+          <button type="button" class="mint-copy-btn btn copy-btn">Copy</button>
+        </div>
+      `;
+      const copyBtn = reveal.querySelector(".mint-copy-btn");
+      copyBtn.addEventListener("click", () => copyToClipboard(result.api_key, copyBtn));
+    } catch (err) {
+      alert("Failed to mint a new API key: " + err.message);
+    } finally {
+      button.disabled = false;
     }
   });
 

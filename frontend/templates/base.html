@@ -12,7 +12,7 @@
 <body>
   <header class="site-header">
     <div class="inner">
-      <a class="brand" href="/">RelayAI</a>
+      <a class="brand" href="{{ '/dashboard' if current_user else '/' }}">RelayAI</a>
       <nav class="site-nav">
         {% if current_user %}
           <a href="/docs">Docs</a>
@@ -28,7 +28,7 @@
     </div>
   </header>
 
-  <main class="page">
+  <main class="page {% block main_class %}{% endblock %}">
     {% block content %}{% endblock %}
   </main>
 

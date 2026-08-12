@@ -89,3 +89,43 @@ def test_companies_created_via_me_do_not_appear_in_the_internal_open_endpoint_sc
     assert response.status_code == 200
     names = [c["name"] for c in response.json()["companies"]]
     assert "Bright Smile Dental" in names
+
+
+def test_mint_api_key_returns_a_new_key_distinct_from_the_original(authenticated_client) -> None:
+    client, _ = authenticated_client
+    created = client.post("/v1/me/companies", json={"name": "Bright Smile Dental"}).json()
+
+    response = client.post(f"/v1/me/companies/{created['id']}/keys")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["api_key"].startswith("rk_")
+    assert body["api_key"] != created["api_key"]
+    assert body["key_prefix"] == body["api_key"][:8]
+
+
+def test_mint_api_key_404s_for_an_unknown_company(authenticated_client) -> None:
+    client, _ = authenticated_client
+
+    response = client.post("/v1/me/companies/does-not-exist/keys")
+
+    assert response.status_code == 404
+
+
+def test_mint_api_key_403s_for_a_company_owned_by_someone_else(authenticated_client) -> None:
+    client, _ = authenticated_client
+    created = client.post("/v1/me/companies", json={"name": "Bright Smile Dental"}).json()
+
+    async def _other_user() -> User:
+        return User(
+            id="a-different-user",
+            email="other@example.com",
+            oauth_provider="google",
+            oauth_subject="other-sub",
+            created_at=datetime.now(UTC),
+        )
+
+    app.dependency_overrides[get_current_user_or_none] = _other_user
+    response = client.post(f"/v1/me/companies/{created['id']}/keys")
+
+    assert response.status_code == 403

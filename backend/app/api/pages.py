@@ -30,3 +30,14 @@ async def dashboard_page(
     key once. Redirects to /login (via the NotAuthenticatedError
     exception handler) if there's no valid session."""
     return templates.TemplateResponse(request, "dashboard.html", {"current_user": current_user})
+
+
+@router.get("/console")
+async def console_page(
+    request: Request,
+    current_user: Annotated[User, Depends(require_current_user_for_page)],
+) -> object:
+    """A login-gated, self-service version of the internal /panel test
+    tool - scoped to the signed-in user's own companies (/v1/me/companies)
+    rather than every company that exists."""
+    return templates.TemplateResponse(request, "console.html", {"current_user": current_user})

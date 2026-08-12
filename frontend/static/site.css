@@ -91,6 +91,12 @@ main.page {
   padding: 48px 24px 96px;
 }
 
+main.page-console {
+  max-width: none;
+  padding: 0;
+  height: calc(100vh - 145px);
+}
+
 .card {
   background: var(--panel);
   border: 1px solid var(--panel-border);
@@ -161,9 +167,55 @@ main.page {
   border-radius: var(--radius);
   padding: 12px;
   word-break: break-all;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .muted { color: var(--muted); }
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--accent-hover);
+}
+
+.copy-btn {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.company-row { flex-direction: column; align-items: stretch; gap: 10px; }
+.company-row .company-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.company-row .company-row-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+.empty-companies {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--muted);
+}
+.empty-companies p { margin: 0 0 4px; }
 
 .hero { position: relative; text-align: center; padding: 72px 0 56px; overflow: hidden; }
 .hero h1 { font-size: 48px; margin-bottom: 14px; }

@@ -168,3 +168,25 @@ async def test_list_for_owner_is_empty_for_an_owner_with_no_companies(
     companies = await repository.list_for_owner(owner_id)
 
     assert companies == []
+
+
+async def test_get_by_id_returns_the_matching_company_with_its_owner(
+    db_session: AsyncSession,
+) -> None:
+    owner_id = await _create_user(db_session, "owner-5")
+    repository = PostgresCompanyRepository(db_session, default_ttl_days=30)
+    company = await repository.create(name="Bright Smile Dental", owner_user_id=owner_id)
+
+    found = await repository.get_by_id(company.id)
+
+    assert found is not None
+    assert found.id == company.id
+    assert found.owner_user_id == owner_id
+
+
+async def test_get_by_id_returns_none_for_an_unknown_company(db_session: AsyncSession) -> None:
+    repository = PostgresCompanyRepository(db_session, default_ttl_days=30)
+
+    found = await repository.get_by_id(str(uuid4()))
+
+    assert found is None

@@ -60,3 +60,13 @@ class DeleteCompanyResponse(BaseModel):
     """Whether a matching company existed and was deleted."""
 
     deleted: bool
+
+
+class MintApiKeyResponse(BaseModel):
+    """A freshly minted API key for a company that already exists - the
+    same one-time-reveal contract as the api_key field on CompanyResponse:
+    copy it now, it's never returned again."""
+
+    api_key: str = Field(description="The new raw API key - shown once, here.")
+    key_prefix: str = Field(description="The key's first few characters, for display later.")
+    created_at: datetime

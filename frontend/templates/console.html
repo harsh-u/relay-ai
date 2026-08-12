@@ -1,0 +1,1128 @@
+{% extends "base.html" %}
+{% block title %}Console - RelayAI{% endblock %}
+{% block main_class %}page-console{% endblock %}
+{% block head %}
+<style>
+  #console-shell {
+    height: 100%;
+    display: flex;
+    min-height: 0;
+    font-size: 14px;
+  }
+  #console-shell aside {
+    width: 260px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--panel-border);
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    gap: 12px;
+    overflow-y: auto;
+  }
+  #console-shell aside h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 0;
+  }
+  #console-shell .new-company { display: flex; gap: 6px; }
+  #console-shell .new-company input { flex: 1; min-width: 0; }
+  #console-shell .console-company-list { display: flex; flex-direction: column; gap: 4px; }
+  #console-shell .console-company-item {
+    padding: 8px 10px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    border: 1px solid transparent;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  #console-shell .console-company-item:hover { background: var(--bg); }
+  #console-shell .console-company-item.active {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: var(--accent);
+    color: var(--accent-hover);
+    font-weight: 600;
+  }
+  #console-shell .console-company-item .label { min-width: 0; overflow-wrap: anywhere; }
+  #console-shell .console-company-item .meta { font-size: 11px; color: var(--muted); font-weight: 400; }
+  #console-shell .console-company-item.active .meta { color: var(--accent-hover); opacity: 0.85; }
+  #console-shell main.console-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  #console-shell .empty-state {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 14px;
+    text-align: center;
+    padding: 40px;
+  }
+  #console-shell nav.tabs {
+    display: flex;
+    gap: 4px;
+    padding: 10px 20px 0;
+    background: var(--panel);
+    border-bottom: 1px solid var(--panel-border);
+    flex-shrink: 0;
+  }
+  #console-shell nav.tabs button {
+    background: none;
+    border: none;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  #console-shell nav.tabs button.active { color: var(--accent-hover); border-bottom-color: var(--accent); }
+  #console-shell .tab-content { flex: 1; overflow-y: auto; padding: 20px; display: none; }
+  #console-shell .tab-content.active { display: flex; flex-direction: column; gap: 16px; }
+  #console-shell .company-header { padding: 14px 20px; background: var(--panel); border-bottom: 1px solid var(--panel-border); flex-shrink: 0; }
+  #console-shell .company-header .name { font-size: 15px; font-weight: 600; }
+  #console-shell .company-header .ids {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    margin-top: 2px;
+  }
+  #console-shell .api-key-banner {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--accent-hover);
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+  }
+  #console-shell .api-key-banner input {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    padding: 4px 6px;
+    flex: 1;
+    min-width: 160px;
+  }
+  #console-shell label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
+  #console-shell input, #console-shell select, #console-shell textarea {
+    font-size: 13px;
+    padding: 7px 9px;
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: inherit;
+  }
+  #console-shell input:focus, #console-shell select:focus, #console-shell textarea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+  }
+  #console-shell button {
+    font-size: 13px;
+    padding: 7px 14px;
+    border-radius: 6px;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  #console-shell button:hover { background: var(--accent-hover); }
+  #console-shell button:disabled { opacity: 0.5; cursor: default; }
+  #console-shell button.secondary { background: var(--panel); color: var(--text); border: 1px solid var(--panel-border); }
+  #console-shell button.secondary:hover { background: var(--bg); }
+  #console-shell button.danger { background: var(--danger); }
+  #console-shell button.danger:hover { opacity: 0.85; }
+  #console-shell .row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+  #console-shell .field.grow { flex: 1; min-width: 160px; }
+  #console-shell .agent-bar { display: flex; align-items: center; gap: 16px; font-size: 13px; color: var(--muted); }
+  #console-shell .agent-bar .field { flex-direction: row; align-items: center; gap: 6px; }
+  #console-shell .agent-bar label { margin: 0; }
+  #console-shell .agent-bar input { width: 140px; }
+
+  #console-shell #chat-tab { padding: 0; }
+  #console-shell .chat-toolbar {
+    padding: 12px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--panel-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  #console-shell .chat-log { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+  #console-shell .bubble { max-width: 70%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.4; }
+  #console-shell .bubble.user {
+    align-self: flex-end;
+    background: var(--accent);
+    color: #fff;
+    border-bottom-right-radius: 2px;
+  }
+  #console-shell .bubble.assistant {
+    align-self: flex-start;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-bottom-left-radius: 2px;
+  }
+  #console-shell .bubble.system {
+    align-self: center;
+    background: rgba(217, 119, 6, 0.15);
+    border: 1px solid rgba(217, 119, 6, 0.4);
+    color: #fbbf24;
+    font-size: 13px;
+    max-width: 85%;
+  }
+  #console-shell .console-tag {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(99, 102, 241, 0.15);
+    color: var(--accent-hover);
+  }
+  #console-shell .bubble.assistant.fallback-answer .console-tag,
+  #console-shell .console-tag.fallback { background: rgba(217, 119, 6, 0.15); color: #fbbf24; }
+  #console-shell .matched-question { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); }
+  #console-shell .matched-question q { font-style: italic; }
+  #console-shell .system-detail .matched-question { color: #fbbf24; }
+  #console-shell .history-turn { padding: 10px 0; border-bottom: 1px solid var(--panel-border); }
+  #console-shell .history-turn:last-child { border-bottom: none; }
+  #console-shell .history-turn.user .history-role { color: var(--accent-hover); }
+  #console-shell .history-turn.assistant .history-role { color: var(--muted); }
+  #console-shell .history-role { font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 600; margin-bottom: 3px; }
+  #console-shell .history-text { font-size: 14px; }
+  #console-shell .fallback-reply {
+    align-self: center;
+    background: var(--panel);
+    border: 1px dashed #d97706;
+    border-radius: var(--radius);
+    padding: 12px;
+    max-width: 85%;
+    width: 85%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  #console-shell .fallback-reply .hint { font-size: 12px; color: #fbbf24; font-weight: 600; }
+  #console-shell .fallback-reply textarea { width: 100%; resize: vertical; min-height: 50px; }
+  #console-shell .chat-input {
+    display: flex;
+    gap: 8px;
+    padding: 14px 20px;
+    background: var(--panel);
+    border-top: 1px solid var(--panel-border);
+    flex-shrink: 0;
+  }
+  #console-shell .chat-input input { flex: 1; font-size: 14px; padding: 10px 12px; }
+
+  #console-shell table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  #console-shell th, #console-shell td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--panel-border);
+    vertical-align: top;
+  }
+  #console-shell th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; }
+  #console-shell td.muted { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  #console-shell .stat-grid { display: flex; gap: 12px; flex-wrap: wrap; }
+  #console-shell .stat {
+    flex: 1;
+    min-width: 140px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius);
+    padding: 14px;
+  }
+  #console-shell .stat .value { font-size: 24px; font-weight: 700; }
+  #console-shell .stat .label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  #console-shell .bar-row { display: flex; align-items: center; gap: 10px; font-size: 13px; margin-bottom: 6px; }
+  #console-shell .bar-row .name { width: 220px; flex-shrink: 0; }
+  #console-shell .bar-row .bar-bg { flex: 1; height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+  #console-shell .bar-row .bar-fill { height: 100%; background: var(--accent); }
+  #console-shell .bar-row .count { width: 40px; text-align: right; color: var(--muted); }
+  #console-shell .console-toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--text);
+    color: var(--bg);
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+    z-index: 100;
+  }
+  #console-shell .console-toast.show { opacity: 1; }
+  #console-shell .console-toast.error { background: var(--danger); color: #fff; }
+</style>
+{% endblock %}
+{% block content %}
+<div id="console-shell">
+  <aside>
+    <h2>Your companies</h2>
+    <form class="new-company" id="new-company-form">
+      <input type="text" id="new-company-name" aria-label="New company name" placeholder="New company name" required />
+      <button type="submit">Add</button>
+    </form>
+    <div class="console-company-list" id="company-list"></div>
+  </aside>
+
+  <main class="console-main">
+    <div id="empty-state" class="empty-state">
+      Create or select a company on the left to start testing.
+    </div>
+
+    <div id="company-view" style="display:none; flex:1; flex-direction:column; min-height:0;">
+      <div class="company-header">
+        <div class="name" id="company-name"></div>
+        <div class="ids" id="company-ids"></div>
+        <div class="row" style="margin-top:8px;">
+          <button type="button" class="secondary" id="mint-key-btn">New API key</button>
+        </div>
+        <div class="api-key-banner" id="api-key-banner" style="display:none;">
+          No API key stored locally for this company (created before this
+          browser had it, or on another device). Paste one below, or mint a
+          fresh one with "New API key" above.
+          <input type="text" id="api-key-input" placeholder="rk_..." />
+          <button type="button" id="api-key-save-btn">Save</button>
+        </div>
+      </div>
+
+      <nav class="tabs">
+        <button data-tab="chat" class="active">Chat Tester</button>
+        <button data-tab="settings">Agent Settings</button>
+        <button data-tab="patterns">Intent Patterns</button>
+        <button data-tab="cache">Knowledge Cache</button>
+        <button data-tab="analytics">Analytics</button>
+        <button data-tab="history">Conversation History</button>
+      </nav>
+
+      <section id="chat-tab" class="tab-content active" style="flex:1; min-height:0;">
+        <div class="chat-toolbar">
+          <div class="agent-bar">
+            <div class="field">
+              <label for="agent-id">Agent ID</label>
+              <input type="text" id="agent-id" value="default" />
+            </div>
+            <span id="conversation-id-label"></span>
+          </div>
+          <button class="secondary" id="new-conversation-btn">New conversation</button>
+        </div>
+        <div class="chat-log" id="chat-log"></div>
+        <form class="chat-input" id="chat-form">
+          <input type="text" id="chat-text" aria-label="Message to send" placeholder="Type what the caller would say..." autocomplete="off" required />
+          <button type="submit">Send</button>
+        </form>
+      </section>
+
+      <section id="settings-tab" class="tab-content">
+        <div class="card">
+          <h3>Knowledge Scope &amp; TTL</h3>
+          <div class="row">
+            <div class="field">
+              <label for="settings-scope">Knowledge scope</label>
+              <select id="settings-scope">
+                <option value="shared">shared</option>
+                <option value="isolated">isolated</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="settings-ttl">TTL (days)</label>
+              <input type="number" id="settings-ttl" min="0" style="width:100px" />
+            </div>
+            <button id="settings-save-btn">Save</button>
+            <button class="secondary" id="settings-refresh-btn">Refresh</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="patterns-tab" class="tab-content">
+        <div class="card">
+          <h3>Add a custom trigger phrase</h3>
+          <div class="row">
+            <div class="field">
+              <label for="pattern-intent">Intent</label>
+              <select id="pattern-intent">
+                <option value="greeting">greeting</option>
+                <option value="repeat_request">repeat_request</option>
+              </select>
+            </div>
+            <div class="field grow">
+              <label for="pattern-text">Phrase</label>
+              <input type="text" id="pattern-text" placeholder="e.g. yo" />
+            </div>
+            <button id="pattern-add-btn">Add</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>This business's custom patterns</h3>
+          <table>
+            <thead><tr><th>Intent</th><th>Pattern</th><th></th></tr></thead>
+            <tbody id="patterns-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="cache-tab" class="tab-content">
+        <div class="card">
+          <h3>Seed a known answer</h3>
+          <div class="row">
+            <div class="field grow">
+              <label for="cache-question">Question</label>
+              <input type="text" id="cache-question" placeholder="Do you accept Delta Dental insurance?" />
+            </div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <div class="field grow">
+              <label for="cache-answer">Answer</label>
+              <input type="text" id="cache-answer" placeholder="Yes, we're in-network with Delta Dental PPO." />
+            </div>
+            <button id="cache-seed-btn">Seed cache</button>
+          </div>
+          <p class="muted" style="font-size:12px; margin: 8px 0 0;">
+            Seeded under the Agent ID set on the Chat Tester tab.
+          </p>
+        </div>
+        <div class="card">
+          <div class="row" style="justify-content: space-between;">
+            <h3 style="margin:0;">Cached answers (newest first, max 200)</h3>
+            <div class="row">
+              <button class="secondary" id="cache-refresh-btn">Refresh</button>
+              <button class="danger" id="cache-clear-agent-btn">Clear this agent</button>
+              <button class="danger" id="cache-clear-all-btn">Clear entire business</button>
+            </div>
+          </div>
+          <table>
+            <thead><tr><th>Agent</th><th>Question</th><th>Answer</th><th>Cached at</th></tr></thead>
+            <tbody id="cache-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="analytics-tab" class="tab-content">
+        <div class="row" style="justify-content: space-between;">
+          <h3 style="margin:0; text-transform:none; font-size:14px;">Decision summary</h3>
+          <button class="secondary" id="analytics-refresh-btn">Refresh</button>
+        </div>
+        <div class="stat-grid">
+          <div class="stat"><div class="value" id="stat-total">-</div><div class="label">Total requests</div></div>
+          <div class="stat"><div class="value" id="stat-respond">-</div><div class="label">Answered locally</div></div>
+          <div class="stat"><div class="value" id="stat-fallback">-</div><div class="label">Fell back to LLM</div></div>
+          <div class="stat"><div class="value" id="stat-rate">-</div><div class="label">Avoided-LLM rate</div></div>
+        </div>
+        <div class="card">
+          <h3>Breakdown by mechanism</h3>
+          <div id="analytics-breakdown"></div>
+        </div>
+      </section>
+
+      <section id="history-tab" class="tab-content">
+        <div class="card">
+          <h3>Recent conversations</h3>
+          <p class="muted" style="font-size:12px; margin: 0 0 10px;">
+            This business's most recently active conversations. Click one to
+            review its transcript below - no need to already know its
+            conversation_id.
+          </p>
+          <div class="console-company-list" id="history-recent-list"></div>
+        </div>
+        <div class="card">
+          <h3>Review a conversation</h3>
+          <p class="muted" style="font-size:12px; margin: 0 0 10px;">
+            Or look up any conversation_id directly (defaults to the one
+            currently active on the Chat Tester tab) to see the full
+            transcript, with each caller turn annotated with how it was
+            actually answered - even after the live chat window is gone.
+          </p>
+          <div class="row">
+            <div class="field grow">
+              <label for="history-conversation-id">Conversation ID</label>
+              <input type="text" id="history-conversation-id" />
+            </div>
+            <button id="history-load-btn">Load</button>
+          </div>
+        </div>
+        <div class="card" id="history-log"></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="console-toast" id="toast"></div>
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  "use strict";
+
+  const state = {
+    companies: [],
+    company: null,
+    conversationId: null,
+  };
+
+  const el = (id) => document.getElementById(id);
+
+  function toast(message, isError) {
+    const t = el("toast");
+    t.textContent = message;
+    t.className = "console-toast show" + (isError ? " error" : "");
+    setTimeout(() => { t.className = "console-toast"; }, 2500);
+  }
+
+  function describeErrorDetail(detail) {
+    if (Array.isArray(detail)) {
+      return detail
+        .map((err) => {
+          const field = Array.isArray(err.loc) ? err.loc.filter((p) => p !== "body").join(".") : "";
+          return field ? `${field}: ${err.msg}` : err.msg;
+        })
+        .join("; ");
+    }
+    return detail;
+  }
+
+  function apiKeyStorageKey(companyId) {
+    return "relayai:apiKey:" + companyId;
+  }
+
+  function getStoredApiKey(companyId) {
+    return companyId ? localStorage.getItem(apiKeyStorageKey(companyId)) : null;
+  }
+
+  function setStoredApiKey(companyId, apiKey) {
+    localStorage.setItem(apiKeyStorageKey(companyId), apiKey);
+  }
+
+  async function api(path, options = {}) {
+    const storedKey = state.company ? getStoredApiKey(state.company.id) : null;
+    const authHeaders = storedKey ? { Authorization: `Bearer ${storedKey}` } : {};
+    const response = await fetch(path, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders,
+        ...(options.headers || {}),
+      },
+    });
+    if (response.status === 401 && !storedKey) {
+      window.location.href = "/login?next=/console";
+      throw new Error("Not signed in");
+    }
+    if (!response.ok) {
+      let detail = response.statusText;
+      try {
+        const body = await response.json();
+        if (body.detail) detail = describeErrorDetail(body.detail);
+      } catch (_) {
+        /* ignore */
+      }
+      throw new Error(detail);
+    }
+    if (response.status === 204) return null;
+    return response.json();
+  }
+
+  function qs(params) {
+    return "?" + new URLSearchParams(params).toString();
+  }
+
+  function newConversationId() {
+    return "console-" + Math.random().toString(36).slice(2) + "-" + Date.now();
+  }
+
+  function agentId() {
+    return el("agent-id").value.trim() || "default";
+  }
+
+  // ---------- Companies ----------
+
+  async function loadCompanies() {
+    const data = await api("/v1/me/companies");
+    state.companies = data.companies;
+    renderCompanyList();
+  }
+
+  function renderCompanyList() {
+    const list = el("company-list");
+    list.innerHTML = "";
+    for (const company of state.companies) {
+      const item = document.createElement("div");
+      item.className = "console-company-item" + (state.company && state.company.id === company.id ? " active" : "");
+      item.innerHTML = `
+        <div class="label">${escapeHtml(company.name)}<div class="meta">${company.knowledge_scope} · ttl ${company.knowledge_ttl_days}d</div></div>
+      `;
+      item.addEventListener("click", () => selectCompany(company));
+      list.appendChild(item);
+    }
+  }
+
+  function selectCompany(company) {
+    state.company = company;
+    state.conversationId = newConversationId();
+    el("empty-state").style.display = "none";
+    el("company-view").style.display = "flex";
+    el("company-name").textContent = company.name;
+    el("company-ids").textContent = `business_id: ${company.id}  |  tenant_id: ${company.tenant_id}`;
+    el("chat-log").innerHTML = "";
+    el("agent-id").value = "default";
+    updateConversationLabel();
+    renderCompanyList();
+    renderApiKeyBanner(company);
+    refreshActiveTab();
+  }
+
+  function renderApiKeyBanner(company) {
+    const hasKey = !!getStoredApiKey(company.id);
+    el("api-key-banner").style.display = hasKey ? "none" : "flex";
+  }
+
+  el("api-key-save-btn").addEventListener("click", () => {
+    const input = el("api-key-input");
+    const value = input.value.trim();
+    if (!value || !state.company) return;
+    setStoredApiKey(state.company.id, value);
+    input.value = "";
+    renderApiKeyBanner(state.company);
+    toast("API key saved for this company");
+  });
+
+  el("mint-key-btn").addEventListener("click", async () => {
+    if (!state.company) return;
+    if (getStoredApiKey(state.company.id) && !confirm(
+      "This company already has a stored key in this browser. Mint a new one anyway? The old key stays valid until revoked - this doesn't replace it, just adds another."
+    )) {
+      return;
+    }
+    try {
+      const result = await api(`/v1/me/companies/${encodeURIComponent(state.company.id)}/keys`, {
+        method: "POST",
+      });
+      setStoredApiKey(state.company.id, result.api_key);
+      renderApiKeyBanner(state.company);
+      toast("New API key minted and saved for this browser");
+    } catch (err) {
+      toast("Failed to mint a new API key: " + err.message, true);
+    }
+  });
+
+  function escapeHtml(value) {
+    const div = document.createElement("div");
+    div.textContent = value;
+    return div.innerHTML;
+  }
+
+  el("new-company-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const nameInput = el("new-company-name");
+    const name = nameInput.value.trim();
+    if (!name) return;
+    try {
+      const company = await api("/v1/me/companies", { method: "POST", body: JSON.stringify({ name }) });
+      nameInput.value = "";
+      if (company.api_key) {
+        setStoredApiKey(company.id, company.api_key);
+      }
+      await loadCompanies();
+      const created = state.companies.find((c) => c.id === company.id);
+      selectCompany(created || company);
+      toast(`Created "${company.name}"`);
+    } catch (err) {
+      toast("Failed to create company: " + err.message, true);
+    }
+  });
+
+  // ---------- Tabs ----------
+
+  document.querySelectorAll("#console-shell nav.tabs button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#console-shell nav.tabs button").forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll("#console-shell .tab-content").forEach((s) => s.classList.remove("active"));
+      btn.classList.add("active");
+      el(btn.dataset.tab + "-tab").classList.add("active");
+      refreshActiveTab();
+    });
+  });
+
+  function activeTabName() {
+    return document.querySelector("#console-shell nav.tabs button.active").dataset.tab;
+  }
+
+  function refreshActiveTab() {
+    if (!state.company) return;
+    const tab = activeTabName();
+    if (tab === "settings") loadSettings();
+    if (tab === "patterns") loadPatterns();
+    if (tab === "cache") loadCache();
+    if (tab === "analytics") loadAnalytics();
+    if (tab === "history") {
+      el("history-conversation-id").value = state.conversationId;
+      loadRecentConversations();
+      loadHistory();
+    }
+  }
+
+  // ---------- Chat ----------
+
+  function updateConversationLabel() {
+    el("conversation-id-label").textContent = "conversation: " + state.conversationId;
+  }
+
+  el("new-conversation-btn").addEventListener("click", () => {
+    state.conversationId = newConversationId();
+    updateConversationLabel();
+    el("chat-log").innerHTML = "";
+    toast("Started a new conversation");
+  });
+
+  function appendBubble(role, html, extraClass) {
+    const log = el("chat-log");
+    const bubble = document.createElement("div");
+    bubble.className = "bubble " + role + (extraClass ? " " + extraClass : "");
+    bubble.innerHTML = html;
+    log.appendChild(bubble);
+    log.scrollTop = log.scrollHeight;
+    return bubble;
+  }
+
+  el("chat-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = el("chat-text");
+    const text = input.value.trim();
+    if (!text || !state.company) return;
+    input.value = "";
+    appendBubble("user", escapeHtml(text));
+
+    try {
+      const result = await api("/v1/inference", {
+        method: "POST",
+        body: JSON.stringify({
+          tenant_id: state.company.tenant_id,
+          business_id: state.company.id,
+          conversation_id: state.conversationId,
+          agent_id: agentId(),
+          text,
+        }),
+      });
+
+      if (result.action === "respond") {
+        const tagParts = [result.source, result.intent];
+        if (result.similarity !== null && result.similarity !== undefined) {
+          tagParts.push("similarity " + result.similarity.toFixed(3));
+        }
+        const tag = tagParts.filter(Boolean).join(" · ");
+        let html = `${escapeHtml(result.text)}<div class="console-tag">${escapeHtml(tag)}</div>`;
+        if (result.matched_question) {
+          html += `<span class="matched-question">Matched cached question: <q>${escapeHtml(result.matched_question)}</q></span>`;
+        }
+        appendBubble("assistant", html);
+      } else {
+        appendFallbackPrompt(text, result.similarity, result.matched_question);
+      }
+    } catch (err) {
+      appendBubble("system", "Error: " + escapeHtml(err.message));
+    }
+  });
+
+  let fallbackReplyCounter = 0;
+
+  function appendFallbackPrompt(question, similarity, matchedQuestion) {
+    let html = escapeHtml(
+      "RelayAI has no local answer for this - your LLM would need to respond now."
+    );
+    if (similarity !== null && similarity !== undefined) {
+      html += escapeHtml(
+        ` Closest cached question was ${similarity.toFixed(3)} similar` +
+          " - below the match threshold, so it didn't count."
+      );
+    }
+    if (matchedQuestion) {
+      html += `<span class="matched-question">Closest cached question: <q>${escapeHtml(matchedQuestion)}</q></span>`;
+    }
+    appendBubble("system", html, "system-detail");
+
+    const log = el("chat-log");
+    const wrap = document.createElement("div");
+    wrap.className = "fallback-reply";
+    const textareaId = "fallback-answer-" + fallbackReplyCounter++;
+    wrap.innerHTML = `
+      <label class="hint" for="${textareaId}">Simulate your LLM's answer</label>
+      <textarea id="${textareaId}" name="fallback-answer" placeholder="What would your LLM say to: &quot;${escapeHtml(question)}&quot;?"></textarea>
+      <div class="row" style="justify-content:flex-end;">
+        <button type="button">Send as LLM answer</button>
+      </div>
+    `;
+    const textarea = wrap.querySelector("textarea");
+    const button = wrap.querySelector("button");
+
+    button.addEventListener("click", async () => {
+      const answer = textarea.value.trim();
+      if (!answer) return;
+      button.disabled = true;
+      try {
+        const result = await api(
+          `/v1/conversations/${encodeURIComponent(state.conversationId)}/messages`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              tenant_id: state.company.tenant_id,
+              business_id: state.company.id,
+              agent_id: agentId(),
+              text: answer,
+            }),
+          }
+        );
+        wrap.remove();
+        appendBubble(
+          "assistant",
+          `${escapeHtml(answer)}<div class="console-tag">fallback · your LLM</div>`,
+          "fallback-answer"
+        );
+        toast(
+          result.cached
+            ? "Reported back - now cached for future similar questions"
+            : "Reported back - not cached (that question was a recognized intent, not a business question)"
+        );
+      } catch (err) {
+        toast("Failed to report answer: " + err.message, true);
+        button.disabled = false;
+      }
+    });
+
+    log.appendChild(wrap);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  // ---------- Settings ----------
+
+  async function loadSettings() {
+    try {
+      const settings = await api(
+        "/v1/knowledge/settings" + qs({ tenant_id: state.company.tenant_id, business_id: state.company.id })
+      );
+      el("settings-scope").value = settings.knowledge_scope;
+      el("settings-ttl").value = settings.knowledge_ttl_days;
+    } catch (err) {
+      toast("Failed to load settings: " + err.message, true);
+    }
+  }
+
+  el("settings-refresh-btn").addEventListener("click", loadSettings);
+
+  el("settings-save-btn").addEventListener("click", async () => {
+    try {
+      const settings = await api("/v1/knowledge/settings", {
+        method: "PATCH",
+        body: JSON.stringify({
+          tenant_id: state.company.tenant_id,
+          business_id: state.company.id,
+          knowledge_scope: el("settings-scope").value,
+          knowledge_ttl_days: Number(el("settings-ttl").value),
+        }),
+      });
+      el("settings-scope").value = settings.knowledge_scope;
+      el("settings-ttl").value = settings.knowledge_ttl_days;
+      state.company.knowledge_scope = settings.knowledge_scope;
+      state.company.knowledge_ttl_days = settings.knowledge_ttl_days;
+      renderCompanyList();
+      toast("Settings saved");
+    } catch (err) {
+      toast("Failed to save settings: " + err.message, true);
+    }
+  });
+
+  // ---------- Patterns ----------
+
+  async function loadPatterns() {
+    try {
+      const data = await api(
+        "/v1/patterns" + qs({ tenant_id: state.company.tenant_id, business_id: state.company.id })
+      );
+      const body = el("patterns-table-body");
+      body.innerHTML = "";
+      for (const p of data.patterns) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${escapeHtml(p.intent)}</td><td>${escapeHtml(p.pattern)}</td><td></td>`;
+        const removeBtn = document.createElement("button");
+        removeBtn.className = "danger";
+        removeBtn.textContent = "Remove";
+        removeBtn.addEventListener("click", async () => {
+          try {
+            const result = await api(
+              "/v1/patterns" +
+                qs({
+                  tenant_id: state.company.tenant_id,
+                  business_id: state.company.id,
+                  intent: p.intent,
+                  pattern: p.pattern,
+                }),
+              { method: "DELETE" }
+            );
+            loadPatterns();
+            toast(result.removed ? "Pattern removed" : "Pattern was already gone");
+          } catch (err) {
+            toast("Failed to remove pattern: " + err.message, true);
+          }
+        });
+        tr.lastElementChild.appendChild(removeBtn);
+        body.appendChild(tr);
+      }
+      if (data.patterns.length === 0) {
+        body.innerHTML = '<tr><td colspan="3" class="muted">No custom patterns yet.</td></tr>';
+      }
+    } catch (err) {
+      toast("Failed to load patterns: " + err.message, true);
+    }
+  }
+
+  el("pattern-add-btn").addEventListener("click", async () => {
+    const pattern = el("pattern-text").value.trim();
+    if (!pattern) return;
+    try {
+      await api("/v1/patterns", {
+        method: "POST",
+        body: JSON.stringify({
+          tenant_id: state.company.tenant_id,
+          business_id: state.company.id,
+          intent: el("pattern-intent").value,
+          pattern,
+        }),
+      });
+      el("pattern-text").value = "";
+      loadPatterns();
+      toast("Pattern added");
+    } catch (err) {
+      toast("Failed to add pattern: " + err.message, true);
+    }
+  });
+
+  // ---------- Knowledge cache ----------
+
+  async function loadCache() {
+    try {
+      const data = await api(
+        "/v1/knowledge/answers" + qs({ tenant_id: state.company.tenant_id, business_id: state.company.id })
+      );
+      const body = el("cache-table-body");
+      body.innerHTML = "";
+      for (const a of data.answers) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="muted">${escapeHtml(a.agent_id)}</td>
+          <td>${escapeHtml(a.question)}</td>
+          <td>${escapeHtml(a.answer)}</td>
+          <td class="muted">${new Date(a.created_at).toLocaleString()}</td>
+        `;
+        body.appendChild(tr);
+      }
+      if (data.answers.length === 0) {
+        body.innerHTML = '<tr><td colspan="4" class="muted">Cache is empty.</td></tr>';
+      }
+    } catch (err) {
+      toast("Failed to load cache: " + err.message, true);
+    }
+  }
+
+  el("cache-refresh-btn").addEventListener("click", loadCache);
+
+  el("cache-seed-btn").addEventListener("click", async () => {
+    const question = el("cache-question").value.trim();
+    const answer = el("cache-answer").value.trim();
+    if (!question || !answer) return;
+    try {
+      await api("/v1/knowledge/answers", {
+        method: "POST",
+        body: JSON.stringify({
+          tenant_id: state.company.tenant_id,
+          business_id: state.company.id,
+          agent_id: agentId(),
+          question,
+          answer,
+        }),
+      });
+      el("cache-question").value = "";
+      el("cache-answer").value = "";
+      loadCache();
+      toast("Answer seeded - reusable immediately");
+    } catch (err) {
+      toast("Failed to seed answer: " + err.message, true);
+    }
+  });
+
+  el("cache-clear-agent-btn").addEventListener("click", async () => {
+    if (!confirm(`Clear the cache for agent "${agentId()}" only? This can't be undone.`)) return;
+    try {
+      const result = await api(
+        "/v1/knowledge/cache" +
+          qs({ tenant_id: state.company.tenant_id, business_id: state.company.id, agent_id: agentId() }),
+        { method: "DELETE" }
+      );
+      loadCache();
+      toast(`Deleted ${result.deleted} cached answer(s) for this agent`);
+    } catch (err) {
+      toast("Failed to clear cache: " + err.message, true);
+    }
+  });
+
+  el("cache-clear-all-btn").addEventListener("click", async () => {
+    if (!confirm("Clear the ENTIRE business's cache - every agent, not just this one? This can't be undone.")) return;
+    try {
+      const result = await api(
+        "/v1/knowledge/cache" + qs({ tenant_id: state.company.tenant_id, business_id: state.company.id }),
+        { method: "DELETE" }
+      );
+      loadCache();
+      toast(`Deleted ${result.deleted} cached answer(s) for the whole business`);
+    } catch (err) {
+      toast("Failed to clear cache: " + err.message, true);
+    }
+  });
+
+  // ---------- Analytics ----------
+
+  async function loadAnalytics() {
+    try {
+      const summary = await api(
+        "/v1/analytics/summary" + qs({ tenant_id: state.company.tenant_id, business_id: state.company.id })
+      );
+      el("stat-total").textContent = summary.total;
+      el("stat-respond").textContent = summary.respond_count;
+      el("stat-fallback").textContent = summary.fallback_count;
+      el("stat-rate").textContent = Math.round(summary.avoided_llm_rate * 100) + "%";
+
+      const breakdown = el("analytics-breakdown");
+      breakdown.innerHTML = "";
+      const entries = Object.entries(summary.respond_by_source);
+      const max = Math.max(1, ...entries.map(([, count]) => count));
+      if (entries.length === 0) {
+        breakdown.innerHTML = '<p class="muted" style="font-size:13px;">No local responses recorded yet.</p>';
+      }
+      for (const [source, count] of entries) {
+        const row = document.createElement("div");
+        row.className = "bar-row";
+        row.innerHTML = `
+          <div class="name">${escapeHtml(source)}</div>
+          <div class="bar-bg"><div class="bar-fill" style="width:${(count / max) * 100}%"></div></div>
+          <div class="count">${count}</div>
+        `;
+        breakdown.appendChild(row);
+      }
+    } catch (err) {
+      toast("Failed to load analytics: " + err.message, true);
+    }
+  }
+
+  el("analytics-refresh-btn").addEventListener("click", loadAnalytics);
+
+  // ---------- History ----------
+
+  async function loadRecentConversations() {
+    const list = el("history-recent-list");
+    list.innerHTML = '<p class="muted" style="font-size:13px;">Loading...</p>';
+    try {
+      const result = await api(
+        "/v1/conversations" + qs({ tenant_id: state.company.tenant_id, business_id: state.company.id })
+      );
+      list.innerHTML = "";
+      if (result.conversations.length === 0) {
+        list.innerHTML = '<p class="muted" style="font-size:13px;">No conversations yet.</p>';
+        return;
+      }
+      const activeId = el("history-conversation-id").value.trim();
+      for (const conversation of result.conversations) {
+        const item = document.createElement("div");
+        item.className = "console-company-item" + (conversation.conversation_id === activeId ? " active" : "");
+        const when = new Date(conversation.last_message_at).toLocaleString();
+        let preview = conversation.last_message_text;
+        if (preview.length > 80) preview = preview.slice(0, 80) + "…";
+        item.innerHTML = `
+          <div class="label">
+            ${escapeHtml(conversation.conversation_id)}
+            <div class="meta">${escapeHtml(conversation.last_message_role)} · ${escapeHtml(when)} · ${escapeHtml(preview)}</div>
+          </div>
+        `;
+        item.addEventListener("click", () => {
+          el("history-conversation-id").value = conversation.conversation_id;
+          loadHistory();
+          loadRecentConversations();
+        });
+        list.appendChild(item);
+      }
+    } catch (err) {
+      list.innerHTML = "";
+      toast("Failed to load recent conversations: " + err.message, true);
+    }
+  }
+
+  async function loadHistory() {
+    const conversationId = el("history-conversation-id").value.trim();
+    const log = el("history-log");
+    if (!conversationId) {
+      log.innerHTML = '<p class="muted" style="font-size:13px;">Enter a conversation ID above.</p>';
+      return;
+    }
+    try {
+      const history = await api(
+        `/v1/conversations/${encodeURIComponent(conversationId)}/history` +
+          qs({ tenant_id: state.company.tenant_id, business_id: state.company.id })
+      );
+      log.innerHTML = "";
+      if (history.turns.length === 0) {
+        log.innerHTML = '<p class="muted" style="font-size:13px;">No turns recorded for this conversation.</p>';
+        return;
+      }
+      for (const turn of history.turns) {
+        const row = document.createElement("div");
+        row.className = "history-turn " + turn.role;
+        const when = new Date(turn.created_at).toLocaleString();
+
+        let annotation = "";
+        if (turn.role === "user") {
+          const tagParts = [turn.action, turn.source, turn.intent].filter(Boolean);
+          if (turn.similarity !== null) tagParts.push("similarity " + turn.similarity.toFixed(3));
+          annotation = `<div class="console-tag">${escapeHtml(tagParts.join(" · "))}</div>`;
+          if (turn.matched_question) {
+            annotation += `<span class="matched-question">Compared against: <q>${escapeHtml(turn.matched_question)}</q></span>`;
+          }
+        } else if (turn.answered_by === "relayai") {
+          annotation = '<div class="console-tag">Answered by RelayAI</div>';
+        } else if (turn.answered_by === "llm_fallback") {
+          annotation = '<div class="console-tag fallback">Answered by caller\'s LLM (fallback)</div>';
+        }
+
+        row.innerHTML = `
+          <div class="history-role">${turn.role} · ${escapeHtml(when)}</div>
+          <div class="history-text">${escapeHtml(turn.text)}</div>
+          ${annotation}
+        `;
+        log.appendChild(row);
+      }
+    } catch (err) {
+      log.innerHTML = "";
+      toast("Failed to load history: " + err.message, true);
+    }
+  }
+
+  el("history-load-btn").addEventListener("click", loadHistory);
+
+  // ---------- Boot ----------
+
+  loadCompanies().catch((err) => toast("Failed to load companies: " + err.message, true));
+})();
+</script>
+{% endblock %}

@@ -118,3 +118,22 @@ async def test_list_for_owner_is_empty_for_an_owner_with_no_companies() -> None:
     companies = await repository.list_for_owner("nobody")
 
     assert companies == []
+
+
+async def test_get_by_id_returns_the_matching_company() -> None:
+    repository = InMemoryCompanyRepository()
+    company = await repository.create(name="Bright Smile Dental", owner_user_id="user-1")
+
+    found = await repository.get_by_id(company.id)
+
+    assert found is not None
+    assert found.id == company.id
+    assert found.owner_user_id == "user-1"
+
+
+async def test_get_by_id_returns_none_for_an_unknown_company() -> None:
+    repository = InMemoryCompanyRepository()
+
+    found = await repository.get_by_id("does-not-exist")
+
+    assert found is None
