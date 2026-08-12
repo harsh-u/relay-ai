@@ -9,6 +9,8 @@ from backend.app.infrastructure.matching.in_memory_patterns import (
 
 TENANT_ID = "00000000-0000-0000-0000-000000000001"
 BUSINESS_ID = "00000000-0000-0000-0000-000000000002"
+AUTH_HEADERS = {"Authorization": f"Bearer test:{TENANT_ID}"}
+OTHER_TENANT_AUTH_HEADERS = {"Authorization": "Bearer test:00000000-0000-0000-0000-000000000099"}
 
 
 def test_greeting_is_answered_without_llm(client: TestClient) -> None:
@@ -20,6 +22,7 @@ def test_greeting_is_answered_without_llm(client: TestClient) -> None:
             "conversation_id": "conversation-1",
             "text": "Hello",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -42,6 +45,7 @@ def test_repeat_request_is_recognized(client: TestClient) -> None:
             "conversation_id": "conversation-without-context",
             "text": "Can you repeat that?",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -64,6 +68,7 @@ def test_repeat_request_variation_is_recognized(client: TestClient) -> None:
             "conversation_id": "conversation-without-context-2",
             "text": "Could you say that again?",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -86,6 +91,7 @@ def test_unknown_request_falls_back(client: TestClient) -> None:
             "conversation_id": "conversation-1",
             "text": "What is your refund policy?",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -108,6 +114,7 @@ def test_empty_request_falls_back(client: TestClient) -> None:
             "conversation_id": "conversation-1",
             "text": "   ",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -121,7 +128,11 @@ def test_empty_request_falls_back(client: TestClient) -> None:
     }
 
 
-def test_inference_requires_tenant_id(client: TestClient) -> None:
+def test_inference_requires_authorization(client: TestClient) -> None:
+    """tenant_id is no longer a client-supplied field - it's derived from
+    the Authorization header. A request with no key at all must be
+    rejected outright, not treated as an unauthenticated tenant."""
+
     response = client.post(
         "/v1/inference",
         json={
@@ -131,7 +142,7 @@ def test_inference_requires_tenant_id(client: TestClient) -> None:
         },
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 401
 
 
 def test_repeat_request_returns_last_assistant_response(client: TestClient) -> None:
@@ -143,6 +154,7 @@ def test_repeat_request_returns_last_assistant_response(client: TestClient) -> N
             "conversation_id": "conversation-repeat",
             "text": "Hello",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert first_response.status_code == 200
@@ -155,6 +167,7 @@ def test_repeat_request_returns_last_assistant_response(client: TestClient) -> N
             "conversation_id": "conversation-repeat",
             "text": "Can you repeat that?",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -184,6 +197,7 @@ def test_reporting_a_repeat_request_fallback_does_not_pollute_the_knowledge_cach
             "conversation_id": "conversation-repeat-no-context",
             "text": "Can you repeat that?",
         },
+        headers=AUTH_HEADERS,
     )
     report_response = client.post(
         "/v1/conversations/conversation-repeat-no-context/messages",
@@ -192,6 +206,7 @@ def test_reporting_a_repeat_request_fallback_does_not_pollute_the_knowledge_cach
             "business_id": "business-1",
             "text": "Sure, I can repeat things in this same call.",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert report_response.json()["cached"] is False
@@ -208,6 +223,7 @@ def test_repeat_request_without_context_falls_back(client: TestClient) -> None:
             "conversation_id": "new-conversation",
             "text": "Can you repeat that?",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -230,6 +246,7 @@ def test_conversation_state_is_isolated(client: TestClient) -> None:
             "conversation_id": "conversation-a",
             "text": "Hello",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert first_response.status_code == 200
@@ -242,6 +259,7 @@ def test_conversation_state_is_isolated(client: TestClient) -> None:
             "conversation_id": "conversation-b",
             "text": "Can you repeat that?",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -260,6 +278,7 @@ def test_tenant_isolation_for_repeat_request(client: TestClient) -> None:
             "conversation_id": "shared-conversation-id",
             "text": "Hello",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert first_response.status_code == 200
@@ -272,6 +291,7 @@ def test_tenant_isolation_for_repeat_request(client: TestClient) -> None:
             "conversation_id": "shared-conversation-id",
             "text": "Can you repeat that?",
         },
+        headers=OTHER_TENANT_AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -288,6 +308,7 @@ def test_business_isolation_for_repeat_request(client: TestClient) -> None:
             "conversation_id": "shared-conversation-id-2",
             "text": "Hello",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert first_response.status_code == 200
@@ -300,6 +321,7 @@ def test_business_isolation_for_repeat_request(client: TestClient) -> None:
             "conversation_id": "shared-conversation-id-2",
             "text": "Can you repeat that?",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -317,6 +339,7 @@ def test_llm_response_can_be_used_for_repeat_request(client: TestClient) -> None
             "conversation_id": conversation_id,
             "text": "What is your refund policy?",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert fallback_response.status_code == 200
@@ -336,6 +359,7 @@ def test_llm_response_can_be_used_for_repeat_request(client: TestClient) -> None
             "business_id": BUSINESS_ID,
             "text": "Our refund policy allows refunds within 30 days.",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert assistant_response.status_code == 200
@@ -353,6 +377,7 @@ def test_llm_response_can_be_used_for_repeat_request(client: TestClient) -> None
             "conversation_id": conversation_id,
             "text": "Can you repeat that?",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert repeat_response.status_code == 200
@@ -377,6 +402,7 @@ def test_llm_context_is_isolated_between_conversations(client: TestClient) -> No
             "business_id": BUSINESS_ID,
             "text": "This is conversation A.",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -389,6 +415,7 @@ def test_llm_context_is_isolated_between_conversations(client: TestClient) -> No
             "conversation_id": second_conversation,
             "text": "Can you repeat that?",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert repeat_response.status_code == 200
@@ -421,6 +448,7 @@ async def test_business_specific_custom_pattern_is_matched(
             "conversation_id": "conversation-custom-pattern",
             "text": "yo",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -447,6 +475,7 @@ async def test_business_specific_custom_pattern_is_isolated_to_its_business(
             "conversation_id": "conversation-custom-pattern-2",
             "text": "yo",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -464,6 +493,8 @@ def _ask_and_report_answer(
     """Ask a question that falls back, then report the LLM's answer back -
     the sequence that populates the answered-question cache for a business."""
 
+    headers = {"Authorization": f"Bearer test:{tenant_id}"}
+
     client.post(
         "/v1/inference",
         json={
@@ -472,10 +503,12 @@ def _ask_and_report_answer(
             "conversation_id": conversation_id,
             "text": question,
         },
+        headers=headers,
     )
     client.post(
         f"/v1/conversations/{conversation_id}/messages",
         json={"tenant_id": tenant_id, "business_id": business_id, "text": answer},
+        headers=headers,
     )
 
 
@@ -510,6 +543,7 @@ def test_semantic_match_does_not_fire_within_the_same_conversation_that_created_
             "conversation_id": "conversation-semantic-1",
             "text": rephrased_question,
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -553,6 +587,7 @@ def test_repeat_that_after_a_semantic_match_repeats_the_matched_answer_not_a_sta
             "conversation_id": caller_conversation_id,
             "text": rephrased_first_question,
         },
+        headers=AUTH_HEADERS,
     )
     assert match_response.json()["source"] == "knowledge:semantic_match"
     assert match_response.json()["text"] == first_answer
@@ -565,6 +600,7 @@ def test_repeat_that_after_a_semantic_match_repeats_the_matched_answer_not_a_sta
             "conversation_id": caller_conversation_id,
             "text": "Can you repeat that?",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert repeat_response.status_code == 200
@@ -605,6 +641,7 @@ def test_fallback_reports_the_closest_cached_similarity_when_below_threshold(
             "conversation_id": "conversation-near-miss-caller",
             "text": near_miss_question,
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -643,6 +680,7 @@ def test_semantic_match_does_not_fire_for_dissimilar_question(
             "conversation_id": "conversation-semantic-2",
             "text": unrelated_question,
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -674,6 +712,7 @@ def test_semantic_match_reuses_answer_across_different_conversations(
             "conversation_id": "conversation-semantic-b",
             "text": rephrased_question,
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -712,6 +751,7 @@ def test_semantic_match_is_isolated_to_its_business(
             "conversation_id": "conversation-semantic-business-b",
             "text": rephrased_question,
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -744,6 +784,7 @@ def test_semantic_match_is_isolated_to_its_tenant(
             "conversation_id": "conversation-semantic-tenant-b",
             "text": rephrased_question,
         },
+        headers=OTHER_TENANT_AUTH_HEADERS,
     )
 
     assert response.status_code == 200

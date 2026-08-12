@@ -11,6 +11,7 @@ from backend.app.api.schemas.patterns import (
 )
 from backend.app.domain.matching.intent import Intent
 from backend.app.domain.matching.pattern_repository import IntentPatternRepository
+from backend.app.infrastructure.auth.dependencies import get_authenticated_tenant_id
 from backend.app.infrastructure.matching.dependencies import get_intent_pattern_repository
 
 router = APIRouter(
@@ -22,6 +23,7 @@ router = APIRouter(
 @router.post("/patterns", response_model=AddPatternResponse)
 async def add_pattern(
     request: AddPatternRequest,
+    tenant_id: Annotated[str, Depends(get_authenticated_tenant_id)],
     pattern_repository: Annotated[
         IntentPatternRepository,
         Depends(get_intent_pattern_repository),
@@ -31,7 +33,7 @@ async def add_pattern(
     self-manage this instead of requiring a direct database insert."""
 
     await pattern_repository.add_pattern(
-        tenant_id=request.tenant_id,
+        tenant_id=tenant_id,
         business_id=request.business_id,
         intent=request.intent,
         pattern=request.pattern,
@@ -42,7 +44,7 @@ async def add_pattern(
 
 @router.get("/patterns", response_model=ListPatternsResponse)
 async def list_patterns(
-    tenant_id: Annotated[str, Query(min_length=1, description="The tenant to look up.")],
+    tenant_id: Annotated[str, Depends(get_authenticated_tenant_id)],
     business_id: Annotated[str, Query(min_length=1, description="The business to look up.")],
     pattern_repository: Annotated[
         IntentPatternRepository,
@@ -64,9 +66,7 @@ async def list_patterns(
 
 @router.delete("/patterns", response_model=RemovePatternResponse)
 async def remove_pattern(
-    tenant_id: Annotated[
-        str, Query(min_length=1, description="The tenant this business belongs to.")
-    ],
+    tenant_id: Annotated[str, Depends(get_authenticated_tenant_id)],
     business_id: Annotated[
         str, Query(min_length=1, description="The business to remove the pattern from.")
     ],

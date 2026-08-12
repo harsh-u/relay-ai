@@ -4,11 +4,6 @@ from pydantic import BaseModel, Field
 class InferenceRequestBody(BaseModel):
     """A transcribed STT turn to run through RelayAI's decision layer."""
 
-    tenant_id: str = Field(
-        min_length=1,
-        description="The tenant this business belongs to.",
-        examples=["11111111-1111-1111-1111-111111111111"],
-    )
     business_id: str = Field(
         min_length=1,
         description="The business this call belongs to.",

@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 TENANT_ID = "00000000-0000-0000-0000-000000000001"
 BUSINESS_ID = "00000000-0000-0000-0000-000000000002"
+AUTH_HEADERS = {"Authorization": f"Bearer test:{TENANT_ID}"}
 
 
 def test_add_pattern_then_it_is_matched(client: TestClient) -> None:
@@ -13,6 +14,7 @@ def test_add_pattern_then_it_is_matched(client: TestClient) -> None:
             "intent": "greeting",
             "pattern": "yo",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert add_response.status_code == 200
@@ -26,6 +28,7 @@ def test_add_pattern_then_it_is_matched(client: TestClient) -> None:
             "conversation_id": "conversation-1",
             "text": "yo",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert inference_response.json()["action"] == "respond"
@@ -42,12 +45,14 @@ def test_add_pattern_is_idempotent(client: TestClient) -> None:
                 "intent": "greeting",
                 "pattern": "howdy",
             },
+            headers=AUTH_HEADERS,
         )
         assert response.status_code == 200
 
     list_response = client.get(
         "/v1/patterns",
         params={"tenant_id": TENANT_ID, "business_id": BUSINESS_ID},
+        headers=AUTH_HEADERS,
     )
 
     matching = [p for p in list_response.json()["patterns"] if p["pattern"] == "howdy"]
@@ -63,6 +68,7 @@ def test_list_patterns_returns_only_this_businesss_custom_patterns(client: TestC
             "intent": "greeting",
             "pattern": "yo",
         },
+        headers=AUTH_HEADERS,
     )
     client.post(
         "/v1/patterns",
@@ -72,11 +78,13 @@ def test_list_patterns_returns_only_this_businesss_custom_patterns(client: TestC
             "intent": "greeting",
             "pattern": "howdy",
         },
+        headers=AUTH_HEADERS,
     )
 
     response = client.get(
         "/v1/patterns",
         params={"tenant_id": TENANT_ID, "business_id": BUSINESS_ID},
+        headers=AUTH_HEADERS,
     )
 
     assert response.json() == {"patterns": [{"intent": "greeting", "pattern": "yo"}]}
@@ -91,6 +99,7 @@ def test_remove_pattern_removes_it_and_it_stops_matching(client: TestClient) -> 
             "intent": "greeting",
             "pattern": "yo",
         },
+        headers=AUTH_HEADERS,
     )
 
     remove_response = client.delete(
@@ -101,6 +110,7 @@ def test_remove_pattern_removes_it_and_it_stops_matching(client: TestClient) -> 
             "intent": "greeting",
             "pattern": "yo",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert remove_response.status_code == 200
@@ -114,6 +124,7 @@ def test_remove_pattern_removes_it_and_it_stops_matching(client: TestClient) -> 
             "conversation_id": "conversation-2",
             "text": "yo",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert inference_response.json()["action"] == "fallback"
@@ -128,6 +139,7 @@ def test_remove_pattern_returns_false_when_nothing_matched(client: TestClient) -
             "intent": "greeting",
             "pattern": "never-added",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -143,6 +155,7 @@ def test_remove_pattern_does_not_affect_builtin_patterns(client: TestClient) -> 
             "intent": "greeting",
             "pattern": "hi",
         },
+        headers=AUTH_HEADERS,
     )
 
     response = client.post(
@@ -153,6 +166,7 @@ def test_remove_pattern_does_not_affect_builtin_patterns(client: TestClient) -> 
             "conversation_id": "conversation-3",
             "text": "hi",
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.json()["action"] == "respond"

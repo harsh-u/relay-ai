@@ -4,12 +4,14 @@ from backend.app.infrastructure.embedding.fake import FakeEmbeddingProvider
 
 TENANT_ID = "00000000-0000-0000-0000-000000000001"
 BUSINESS_ID = "00000000-0000-0000-0000-000000000002"
+AUTH_HEADERS = {"Authorization": f"Bearer test:{TENANT_ID}"}
 
 
 def test_history_is_empty_for_an_unknown_conversation(client: TestClient) -> None:
     response = client.get(
         "/v1/conversations/never-happened/history",
         params={"tenant_id": TENANT_ID, "business_id": BUSINESS_ID},
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -27,6 +29,7 @@ def test_history_shows_a_fallback_then_reported_answer(client: TestClient) -> No
             "conversation_id": conversation_id,
             "text": "What is your refund policy?",
         },
+        headers=AUTH_HEADERS,
     )
     client.post(
         f"/v1/conversations/{conversation_id}/messages",
@@ -35,11 +38,13 @@ def test_history_shows_a_fallback_then_reported_answer(client: TestClient) -> No
             "business_id": BUSINESS_ID,
             "text": "Refunds within 30 days.",
         },
+        headers=AUTH_HEADERS,
     )
 
     response = client.get(
         f"/v1/conversations/{conversation_id}/history",
         params={"tenant_id": TENANT_ID, "business_id": BUSINESS_ID},
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -78,10 +83,12 @@ def test_history_shows_a_semantic_match_with_similarity_and_matched_question(
             "conversation_id": seeding_conversation_id,
             "text": original_question,
         },
+        headers=AUTH_HEADERS,
     )
     client.post(
         f"/v1/conversations/{seeding_conversation_id}/messages",
         json={"tenant_id": TENANT_ID, "business_id": BUSINESS_ID, "text": answer},
+        headers=AUTH_HEADERS,
     )
     client.post(
         "/v1/inference",
@@ -91,11 +98,13 @@ def test_history_shows_a_semantic_match_with_similarity_and_matched_question(
             "conversation_id": caller_conversation_id,
             "text": rephrased_question,
         },
+        headers=AUTH_HEADERS,
     )
 
     response = client.get(
         f"/v1/conversations/{caller_conversation_id}/history",
         params={"tenant_id": TENANT_ID, "business_id": BUSINESS_ID},
+        headers=AUTH_HEADERS,
     )
 
     turns = response.json()["turns"]
@@ -127,11 +136,13 @@ def test_history_labels_a_builtin_greeting_reply_as_answered_by_relayai(
             "conversation_id": conversation_id,
             "text": "hello",
         },
+        headers=AUTH_HEADERS,
     )
 
     response = client.get(
         f"/v1/conversations/{conversation_id}/history",
         params={"tenant_id": TENANT_ID, "business_id": BUSINESS_ID},
+        headers=AUTH_HEADERS,
     )
 
     turns = response.json()["turns"]
@@ -149,6 +160,7 @@ def test_list_conversations_is_empty_for_a_business_with_no_activity(client: Tes
     response = client.get(
         "/v1/conversations",
         params={"tenant_id": TENANT_ID, "business_id": "00000000-0000-0000-0000-000000000099"},
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -166,11 +178,13 @@ def test_list_conversations_shows_recent_activity_for_discovery(client: TestClie
             "conversation_id": conversation_id,
             "text": "What are your hours?",
         },
+        headers=AUTH_HEADERS,
     )
 
     response = client.get(
         "/v1/conversations",
         params={"tenant_id": TENANT_ID, "business_id": BUSINESS_ID},
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -193,11 +207,13 @@ def test_list_conversations_respects_the_limit(client: TestClient) -> None:
                 "conversation_id": f"conversation-list-limit-{i}",
                 "text": f"Question {i}",
             },
+            headers=AUTH_HEADERS,
         )
 
     response = client.get(
         "/v1/conversations",
         params={"tenant_id": TENANT_ID, "business_id": business_id, "limit": 2},
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200

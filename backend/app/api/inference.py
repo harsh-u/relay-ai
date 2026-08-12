@@ -26,6 +26,7 @@ from backend.app.domain.inference import InferenceAction, InferenceRequest
 from backend.app.domain.knowledge.repository import AnsweredQuestionRepository
 from backend.app.domain.matching.pattern_repository import IntentPatternRepository
 from backend.app.infrastructure.analytics.dependencies import get_decision_repository
+from backend.app.infrastructure.auth.dependencies import get_authenticated_tenant_id
 from backend.app.infrastructure.business.dependencies import get_business_settings_repository
 from backend.app.infrastructure.conversation.dependencies import (
     get_conversation_store,
@@ -47,6 +48,7 @@ router = APIRouter(
 @router.post("/inference", response_model=InferenceResponseBody)
 async def inference(
     request: InferenceRequestBody,
+    tenant_id: Annotated[str, Depends(get_authenticated_tenant_id)],
     conversation_store: Annotated[
         ConversationStore,
         Depends(get_conversation_store),
@@ -89,7 +91,7 @@ async def inference(
 
     result = await inference_service.process(
         InferenceRequest(
-            tenant_id=request.tenant_id,
+            tenant_id=tenant_id,
             business_id=request.business_id,
             conversation_id=request.conversation_id,
             agent_id=request.agent_id,
@@ -117,6 +119,7 @@ async def record_assistant_message(
         Path(description="The same conversation_id used in this call's /v1/inference requests."),
     ],
     request: AssistantMessageRequest,
+    tenant_id: Annotated[str, Depends(get_authenticated_tenant_id)],
     conversation_store: Annotated[
         ConversationStore,
         Depends(get_conversation_store),
@@ -151,7 +154,7 @@ async def record_assistant_message(
     )
 
     cached = await conversation_service.record_assistant_response(
-        tenant_id=request.tenant_id,
+        tenant_id=tenant_id,
         business_id=request.business_id,
         conversation_id=conversation_id,
         agent_id=request.agent_id,
@@ -170,9 +173,7 @@ async def record_assistant_message(
     response_model=ConversationListResponse,
 )
 async def list_conversations(
-    tenant_id: Annotated[
-        str, Query(min_length=1, description="The tenant this business belongs to.")
-    ],
+    tenant_id: Annotated[str, Depends(get_authenticated_tenant_id)],
     business_id: Annotated[
         str, Query(min_length=1, description="The business this call belongs to.")
     ],
@@ -214,9 +215,7 @@ async def list_conversations(
 )
 async def get_conversation_history(
     conversation_id: Annotated[str, Path(description="The conversation to review.")],
-    tenant_id: Annotated[
-        str, Query(min_length=1, description="The tenant this business belongs to.")
-    ],
+    tenant_id: Annotated[str, Depends(get_authenticated_tenant_id)],
     business_id: Annotated[
         str, Query(min_length=1, description="The business this call belongs to.")
     ],

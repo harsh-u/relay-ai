@@ -37,6 +37,17 @@ class CompanyResponse(BaseModel):
     knowledge_scope: KnowledgeScope
     knowledge_ttl_days: int
     created_at: datetime
+    api_key: str | None = Field(
+        default=None,
+        description=(
+            "This tenant's newly minted API key - present ONLY in the "
+            "response to POST /v1/companies, and only for the company just "
+            "created. Never returned again by this or any other call "
+            "(GET/DELETE /v1/companies always send this as null) - copy it "
+            "now. Use it as 'Authorization: Bearer <api_key>' on every "
+            "other RelayAI endpoint."
+        ),
+    )
 
 
 class ListCompaniesResponse(BaseModel):

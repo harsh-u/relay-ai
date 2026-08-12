@@ -4,6 +4,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.app.infrastructure.auth.postgres import PostgresApiKeyRepository
 from backend.app.main import app
 from backend.app.models.business import Business
 from backend.app.models.conversation_message import ConversationMessageModel
@@ -39,31 +40,33 @@ async def test_conversation_writes_persist_across_separate_requests(
     )
     db_session.add(business)
     await db_session.flush()
+
+    _, raw_api_key = await PostgresApiKeyRepository(db_session).create(tenant_id=str(tenant.id))
     await db_session.commit()
 
-    tenant_id = str(tenant.id)
     business_id = str(business.id)
     conversation_id = f"commit-regression-{uuid.uuid4()}"
+    headers = {"Authorization": f"Bearer {raw_api_key}"}
 
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             await client.post(
                 f"/v1/conversations/{conversation_id}/messages",
                 json={
-                    "tenant_id": tenant_id,
                     "business_id": business_id,
                     "text": "Persisted answer",
                 },
+                headers=headers,
             )
 
             response = await client.post(
                 "/v1/inference",
                 json={
-                    "tenant_id": tenant_id,
                     "business_id": business_id,
                     "conversation_id": conversation_id,
                     "text": "Can you repeat that?",
                 },
+                headers=headers,
             )
 
         assert response.json() == {

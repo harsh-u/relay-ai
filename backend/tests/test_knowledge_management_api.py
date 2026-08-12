@@ -5,6 +5,7 @@ from backend.app.infrastructure.knowledge.in_memory import InMemoryAnsweredQuest
 
 TENANT_ID = "00000000-0000-0000-0000-000000000001"
 BUSINESS_ID = "00000000-0000-0000-0000-000000000002"
+AUTH_HEADERS = {"Authorization": f"Bearer test:{TENANT_ID}"}
 
 
 def test_get_knowledge_settings_returns_defaults_for_an_unconfigured_business(
@@ -13,6 +14,7 @@ def test_get_knowledge_settings_returns_defaults_for_an_unconfigured_business(
     response = client.get(
         "/v1/knowledge/settings",
         params={"tenant_id": TENANT_ID, "business_id": BUSINESS_ID},
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -30,11 +32,13 @@ def test_get_knowledge_settings_reflects_a_prior_update_without_changing_it(
             "knowledge_scope": "isolated",
             "knowledge_ttl_days": 14,
         },
+        headers=AUTH_HEADERS,
     )
 
     response = client.get(
         "/v1/knowledge/settings",
         params={"tenant_id": TENANT_ID, "business_id": BUSINESS_ID},
+        headers=AUTH_HEADERS,
     )
 
     assert response.json() == {"knowledge_scope": "isolated", "knowledge_ttl_days": 14}
@@ -49,6 +53,7 @@ def test_update_knowledge_settings_changes_scope_and_ttl(client: TestClient) -> 
             "knowledge_scope": "isolated",
             "knowledge_ttl_days": 14,
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -66,6 +71,7 @@ def test_update_knowledge_settings_partial_update_leaves_other_field_alone(
             "knowledge_scope": "isolated",
             "knowledge_ttl_days": 14,
         },
+        headers=AUTH_HEADERS,
     )
 
     response = client.patch(
@@ -75,6 +81,7 @@ def test_update_knowledge_settings_partial_update_leaves_other_field_alone(
             "business_id": BUSINESS_ID,
             "knowledge_ttl_days": 7,
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.json() == {"knowledge_scope": "isolated", "knowledge_ttl_days": 7}
@@ -97,6 +104,7 @@ def test_update_knowledge_settings_actually_affects_matching(
             "business_id": BUSINESS_ID,
             "knowledge_scope": "isolated",
         },
+        headers=AUTH_HEADERS,
     )
 
     client.post(
@@ -108,6 +116,7 @@ def test_update_knowledge_settings_actually_affects_matching(
             "agent_id": "agent-alpha",
             "text": original_question,
         },
+        headers=AUTH_HEADERS,
     )
     client.post(
         "/v1/conversations/conv-a/messages",
@@ -117,6 +126,7 @@ def test_update_knowledge_settings_actually_affects_matching(
             "agent_id": "agent-alpha",
             "text": "Yes.",
         },
+        headers=AUTH_HEADERS,
     )
 
     response = client.post(
@@ -128,6 +138,7 @@ def test_update_knowledge_settings_actually_affects_matching(
             "agent_id": "agent-beta",
             "text": rephrased_question,
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.json()["action"] == "fallback"
@@ -152,6 +163,7 @@ def test_add_answered_question_seeds_cache_instantly(
             "question": question,
             "answer": answer,
         },
+        headers=AUTH_HEADERS,
     )
 
     assert seed_response.status_code == 200
@@ -165,6 +177,7 @@ def test_add_answered_question_seeds_cache_instantly(
             "conversation_id": "conv-seeded",
             "text": rephrased_question,
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -207,6 +220,7 @@ def test_reporting_near_duplicate_questions_does_not_grow_the_cache(
                 "conversation_id": conversation_id,
                 "text": question,
             },
+            headers=AUTH_HEADERS,
         )
         client.post(
             f"/v1/conversations/{conversation_id}/messages",
@@ -215,6 +229,7 @@ def test_reporting_near_duplicate_questions_does_not_grow_the_cache(
                 "business_id": BUSINESS_ID,
                 "text": answer,
             },
+            headers=AUTH_HEADERS,
         )
 
     entries = answered_question_repository._entries[(TENANT_ID, BUSINESS_ID)]
@@ -237,11 +252,13 @@ def test_list_answered_questions_returns_a_seeded_answer(
             "question": question,
             "answer": answer,
         },
+        headers=AUTH_HEADERS,
     )
 
     response = client.get(
         "/v1/knowledge/answers",
         params={"tenant_id": TENANT_ID, "business_id": BUSINESS_ID},
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200
@@ -258,6 +275,7 @@ def test_list_answered_questions_is_empty_for_a_business_with_no_cache(
     response = client.get(
         "/v1/knowledge/answers",
         params={"tenant_id": TENANT_ID, "business_id": BUSINESS_ID},
+        headers=AUTH_HEADERS,
     )
 
     assert response.status_code == 200

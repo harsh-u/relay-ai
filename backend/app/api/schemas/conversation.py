@@ -8,11 +8,6 @@ class AssistantMessageRequest(BaseModel):
     back so RelayAI can reuse it later (for "repeat that" in this call, and
     for any future caller asking this business something similar)."""
 
-    tenant_id: str = Field(
-        min_length=1,
-        description="The tenant this business belongs to.",
-        examples=["11111111-1111-1111-1111-111111111111"],
-    )
     business_id: str = Field(
         min_length=1,
         description="The business this call belongs to.",

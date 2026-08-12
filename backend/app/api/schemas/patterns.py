@@ -7,11 +7,6 @@ class AddPatternRequest(BaseModel):
     """A business-specific trigger phrase to add on top of RelayAI's builtin
     patterns for a known intent."""
 
-    tenant_id: str = Field(
-        min_length=1,
-        description="The tenant this business belongs to.",
-        examples=["11111111-1111-1111-1111-111111111111"],
-    )
     business_id: str = Field(
         min_length=1,
         description="The business this custom pattern applies to.",

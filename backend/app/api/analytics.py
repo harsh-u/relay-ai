@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from backend.app.api.schemas.analytics import DecisionSummaryResponse
 from backend.app.domain.analytics.repository import DecisionRepository
 from backend.app.infrastructure.analytics.dependencies import get_decision_repository
+from backend.app.infrastructure.auth.dependencies import get_authenticated_tenant_id
 
 router = APIRouter(
     prefix="/v1",
@@ -14,9 +15,7 @@ router = APIRouter(
 
 @router.get("/analytics/summary", response_model=DecisionSummaryResponse)
 async def get_decision_summary(
-    tenant_id: Annotated[
-        str, Query(min_length=1, description="The tenant this business belongs to.")
-    ],
+    tenant_id: Annotated[str, Depends(get_authenticated_tenant_id)],
     business_id: Annotated[str, Query(min_length=1, description="The business to summarize.")],
     decision_repository: Annotated[
         DecisionRepository,

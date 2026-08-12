@@ -16,6 +16,7 @@ from backend.app.config.settings import get_settings
 from backend.app.domain.business.repository import BusinessSettingsRepository
 from backend.app.domain.embedding.provider import EmbeddingProvider
 from backend.app.domain.knowledge.repository import AnsweredQuestionRepository
+from backend.app.infrastructure.auth.dependencies import get_authenticated_tenant_id
 from backend.app.infrastructure.business.dependencies import get_business_settings_repository
 from backend.app.infrastructure.embedding.dependencies import get_embedding_provider
 from backend.app.infrastructure.knowledge.dependencies import get_answered_question_repository
@@ -28,9 +29,7 @@ router = APIRouter(
 
 @router.delete("/knowledge/cache", response_model=ClearKnowledgeCacheResponse)
 async def clear_knowledge_cache(
-    tenant_id: Annotated[
-        str, Query(min_length=1, description="The tenant this business belongs to.")
-    ],
+    tenant_id: Annotated[str, Depends(get_authenticated_tenant_id)],
     business_id: Annotated[
         str, Query(min_length=1, description="The business whose cache to clear.")
     ],
@@ -67,9 +66,7 @@ async def clear_knowledge_cache(
 
 @router.get("/knowledge/settings", response_model=UpdateKnowledgeSettingsResponse)
 async def get_knowledge_settings(
-    tenant_id: Annotated[
-        str, Query(min_length=1, description="The tenant this business belongs to.")
-    ],
+    tenant_id: Annotated[str, Depends(get_authenticated_tenant_id)],
     business_id: Annotated[str, Query(min_length=1, description="The business to look up.")],
     business_settings_repository: Annotated[
         BusinessSettingsRepository,
@@ -93,6 +90,7 @@ async def get_knowledge_settings(
 @router.patch("/knowledge/settings", response_model=UpdateKnowledgeSettingsResponse)
 async def update_knowledge_settings(
     request: UpdateKnowledgeSettingsRequest,
+    tenant_id: Annotated[str, Depends(get_authenticated_tenant_id)],
     business_settings_repository: Annotated[
         BusinessSettingsRepository,
         Depends(get_business_settings_repository),
@@ -105,7 +103,7 @@ async def update_knowledge_settings(
     This is the API alternative to updating the businesses table directly."""
 
     updated = await business_settings_repository.update_knowledge_settings(
-        tenant_id=request.tenant_id,
+        tenant_id=tenant_id,
         business_id=request.business_id,
         knowledge_scope=request.knowledge_scope,
         knowledge_ttl_days=request.knowledge_ttl_days,
@@ -123,6 +121,7 @@ async def update_knowledge_settings(
 @router.post("/knowledge/answers", response_model=AddAnsweredQuestionResponse)
 async def add_answered_question(
     request: AddAnsweredQuestionRequest,
+    tenant_id: Annotated[str, Depends(get_authenticated_tenant_id)],
     embedding_provider: Annotated[
         EmbeddingProvider,
         Depends(get_embedding_provider),
@@ -143,7 +142,7 @@ async def add_answered_question(
     )
 
     await knowledge_service.add_answered_question(
-        tenant_id=request.tenant_id,
+        tenant_id=tenant_id,
         business_id=request.business_id,
         agent_id=request.agent_id,
         question=request.question,
@@ -155,9 +154,7 @@ async def add_answered_question(
 
 @router.get("/knowledge/answers", response_model=ListAnsweredQuestionsResponse)
 async def list_answered_questions(
-    tenant_id: Annotated[
-        str, Query(min_length=1, description="The tenant this business belongs to.")
-    ],
+    tenant_id: Annotated[str, Depends(get_authenticated_tenant_id)],
     business_id: Annotated[str, Query(min_length=1, description="The business to look up.")],
     answered_question_repository: Annotated[
         AnsweredQuestionRepository,

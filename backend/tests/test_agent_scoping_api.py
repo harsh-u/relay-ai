@@ -7,6 +7,7 @@ from backend.app.infrastructure.embedding.fake import FakeEmbeddingProvider
 
 TENANT_ID = "00000000-0000-0000-0000-000000000001"
 BUSINESS_ID = "00000000-0000-0000-0000-000000000002"
+AUTH_HEADERS = {"Authorization": f"Bearer test:{TENANT_ID}"}
 
 
 def _ask_and_report(
@@ -25,6 +26,7 @@ def _ask_and_report(
             "agent_id": agent_id,
             "text": question,
         },
+        headers=AUTH_HEADERS,
     )
     client.post(
         f"/v1/conversations/{conversation_id}/messages",
@@ -34,6 +36,7 @@ def _ask_and_report(
             "agent_id": agent_id,
             "text": answer,
         },
+        headers=AUTH_HEADERS,
     )
 
 
@@ -62,6 +65,7 @@ def test_shared_scope_lets_agents_reuse_each_others_answers(
             "agent_id": "agent-beta",
             "text": rephrased_question,
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.json()["action"] == "respond"
@@ -97,6 +101,7 @@ def test_isolated_scope_keeps_agents_separate(
             "agent_id": "agent-beta",
             "text": rephrased_question,
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.json()["action"] == "fallback"
@@ -131,6 +136,7 @@ def test_isolated_scope_still_lets_same_agent_reuse_its_own_answer(
             "agent_id": "agent-alpha",
             "text": rephrased_question,
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.json()["action"] == "respond"
@@ -168,6 +174,7 @@ def test_ttl_zero_means_cached_answers_never_reused(
             "agent_id": "agent-alpha",
             "text": rephrased_question,
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.json()["action"] == "fallback"
@@ -188,6 +195,7 @@ def test_clear_cache_endpoint_removes_cached_answers(
     clear_response = client.delete(
         "/v1/knowledge/cache",
         params={"tenant_id": TENANT_ID, "business_id": BUSINESS_ID},
+        headers=AUTH_HEADERS,
     )
 
     assert clear_response.status_code == 200
@@ -202,6 +210,7 @@ def test_clear_cache_endpoint_removes_cached_answers(
             "agent_id": "agent-alpha",
             "text": rephrased_question,
         },
+        headers=AUTH_HEADERS,
     )
 
     assert response.json()["action"] == "fallback"

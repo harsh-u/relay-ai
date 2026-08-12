@@ -13,18 +13,38 @@ def test_create_company_returns_shared_scope_and_default_ttl(client: TestClient)
     assert body["id"] != body["tenant_id"]
 
 
-def test_created_company_is_usable_immediately_via_inference(client: TestClient) -> None:
-    create_response = client.post("/v1/companies", json={"name": "Bright Smile Dental"})
+def test_create_company_returns_a_usable_api_key_once(client: TestClient) -> None:
+    response = client.post("/v1/companies", json={"name": "Bright Smile Dental"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["api_key"]
+    assert body["api_key"].startswith("rk_")
+
+    listed = client.get("/v1/companies").json()["companies"]
+    assert all(company["api_key"] is None for company in listed)
+
+
+def test_created_company_is_usable_immediately_via_inference(
+    client_with_real_auth: TestClient,
+) -> None:
+    """Uses the real api_key returned by creation - not the `test:` auth
+    shortcut every other test uses - to prove the real hash-and-lookup
+    path genuinely authenticates a freshly minted key."""
+
+    create_response = client_with_real_auth.post(
+        "/v1/companies", json={"name": "Bright Smile Dental"}
+    )
     company = create_response.json()
 
-    response = client.post(
+    response = client_with_real_auth.post(
         "/v1/inference",
         json={
-            "tenant_id": company["tenant_id"],
             "business_id": company["id"],
             "conversation_id": "conv-new-company",
             "text": "hello",
         },
+        headers={"Authorization": f"Bearer {company['api_key']}"},
     )
 
     assert response.status_code == 200

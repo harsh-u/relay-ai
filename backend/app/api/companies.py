@@ -8,8 +8,10 @@ from backend.app.api.schemas.companies import (
     DeleteCompanyResponse,
     ListCompaniesResponse,
 )
+from backend.app.domain.auth.repository import ApiKeyRepository
 from backend.app.domain.business.company import Company
 from backend.app.domain.business.company_repository import CompanyRepository
+from backend.app.infrastructure.auth.dependencies import get_api_key_repository
 from backend.app.infrastructure.business.dependencies import get_company_repository
 
 router = APIRouter(
@@ -18,7 +20,7 @@ router = APIRouter(
 )
 
 
-def _to_response(company: Company) -> CompanyResponse:
+def _to_response(company: Company, api_key: str | None = None) -> CompanyResponse:
     return CompanyResponse(
         id=company.id,
         tenant_id=company.tenant_id,
@@ -27,6 +29,7 @@ def _to_response(company: Company) -> CompanyResponse:
         knowledge_scope=company.knowledge_scope,
         knowledge_ttl_days=company.knowledge_ttl_days,
         created_at=company.created_at,
+        api_key=api_key,
     )
 
 
@@ -37,16 +40,25 @@ async def create_company(
         CompanyRepository,
         Depends(get_company_repository),
     ],
+    api_key_repository: Annotated[
+        ApiKeyRepository,
+        Depends(get_api_key_repository),
+    ],
 ) -> CompanyResponse:
     """Create a new company - a tenant + its one business, bundled together
     so the test panel (or any quick-start integration) doesn't need to think
     about multi-tenancy directly. Defaults to 'shared' knowledge scope and
     the global default TTL; use PATCH /v1/knowledge/settings to change
-    either afterward."""
+    either afterward.
+
+    Also mints this tenant's first API key and returns it in `api_key` -
+    shown exactly once, here. Every other RelayAI endpoint requires it as
+    'Authorization: Bearer <api_key>'."""
 
     company = await company_repository.create(name=request.name)
+    _, raw_api_key = await api_key_repository.create(tenant_id=company.tenant_id)
 
-    return _to_response(company)
+    return _to_response(company, api_key=raw_api_key)
 
 
 @router.get("/companies", response_model=ListCompaniesResponse)

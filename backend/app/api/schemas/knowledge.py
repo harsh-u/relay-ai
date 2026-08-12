@@ -18,11 +18,6 @@ class UpdateKnowledgeSettingsRequest(BaseModel):
     """Change how a business's knowledge cache behaves. Only the fields you
     set are changed - omit a field (or send it as null) to leave it as is."""
 
-    tenant_id: str = Field(
-        min_length=1,
-        description="The tenant this business belongs to.",
-        examples=["11111111-1111-1111-1111-111111111111"],
-    )
     business_id: str = Field(
         min_length=1,
         description="The business to configure.",
@@ -62,11 +57,6 @@ class AddAnsweredQuestionRequest(BaseModel):
     pair - e.g. to pre-load a business's common FAQs instead of waiting for
     a real caller to trigger a fallback-then-report round trip first."""
 
-    tenant_id: str = Field(
-        min_length=1,
-        description="The tenant this business belongs to.",
-        examples=["11111111-1111-1111-1111-111111111111"],
-    )
     business_id: str = Field(
         min_length=1,
         description="The business this answer belongs to.",
