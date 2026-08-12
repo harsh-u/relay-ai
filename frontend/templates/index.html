@@ -9,11 +9,47 @@
     </div>
     <h1>Say it once. Answer it forever.</h1>
     <p>
-      RelayAI sits in front of your voice agent's LLM and answers what it
-      already knows how to answer - greetings, repeats, FAQs your callers
-      ask over and over - without a single extra LLM call.
+      RelayAI sits in front of your voice agent's LLM and TTS provider,
+      and answers what it already knows how to answer - greetings,
+      repeats, FAQs your callers ask over and over - without a single
+      extra LLM call or TTS re-synthesis.
     </p>
     <a class="btn btn-primary" href="/login">Get your API key</a>
+  </div>
+</section>
+
+<section style="margin-top:16px;" data-reveal>
+  <h2 style="text-align:center; margin-bottom:8px;">Built to cut the two costs that eat voice AI margins</h2>
+  <p class="muted" style="text-align:center; max-width:640px; margin:0 auto;">
+    Every call your voice platform handles pays twice for the same thing,
+    over and over: an LLM call to decide what to say, and a TTS call to
+    say it. RelayAI attacks both.
+  </p>
+  <div class="cost-grid">
+    <div class="card cost-card" data-tilt="4">
+      <span class="eyebrow">Lower LLM costs</span>
+      <h3>Skip the LLM call entirely for what it already knows</h3>
+      <p>
+        Greetings, repeats, and FAQs your callers ask over and over get
+        answered straight from RelayAI's semantic knowledge cache - the
+        exact question doesn't need to match, just the meaning. Every
+        one of those turns is one LLM call your platform never pays
+        for. Your own dashboard's avoided-LLM rate shows exactly how
+        much of your traffic never has to leave RelayAI at all.
+      </p>
+    </div>
+    <div class="card cost-card" data-tilt="4">
+      <span class="eyebrow">Lower TTS costs - VoiceCache</span>
+      <h3>Say it once. Play it forever.</h3>
+      <p>
+        Voice agents repeat themselves constantly - greetings, tool-call
+        filler, confirmations, FAQ answers. VoiceCache caches the
+        synthesized audio for those exact lines, so a repeated line
+        skips your TTS provider entirely and streams back instantly, at
+        zero synthesis cost. Provider-agnostic, drop-in, no rework to
+        how your agent decides what to say.
+      </p>
+    </div>
   </div>
 </section>
 
@@ -33,21 +69,6 @@
   <div class="card" data-tilt="6">
     <h3>Drop-in API</h3>
     <p>One inference call per turn. Respond directly, or fall back to your own LLM exactly as before - RelayAI never gets in the way.</p>
-  </div>
-</section>
-
-<section style="margin-top:64px;" data-reveal>
-  <div class="card" data-tilt="4">
-    <span class="tag" style="margin-bottom:12px; display:inline-block;">Coming soon</span>
-    <h2 style="margin-top:0;">VoiceCache - say it once, play it forever</h2>
-    <p class="muted">
-      Voice agents repeat themselves constantly - greetings, tool-call
-      filler, confirmations, FAQ answers. VoiceCache caches the
-      synthesized audio for those exact lines, so a repeated line skips
-      your TTS provider entirely and streams back instantly, at zero
-      synthesis cost. Provider-agnostic, drop-in, no rework to how your
-      agent decides what to say.
-    </p>
   </div>
 </section>
 {% endblock %}

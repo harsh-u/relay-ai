@@ -165,9 +165,9 @@ main.page {
 
 .muted { color: var(--muted); }
 
-.hero { position: relative; text-align: center; padding: 64px 0 48px; overflow: hidden; }
-.hero h1 { font-size: 40px; margin-bottom: 12px; }
-.hero p { color: var(--muted); font-size: 18px; max-width: 640px; margin: 0 auto 28px; }
+.hero { position: relative; text-align: center; padding: 72px 0 56px; overflow: hidden; }
+.hero h1 { font-size: 48px; margin-bottom: 14px; }
+.hero p { color: var(--muted); font-size: 19px; max-width: 680px; margin: 0 auto 32px; }
 .hero-inner { position: relative; z-index: 1; }
 
 #hero-scene {
@@ -185,17 +185,22 @@ main.page {
 .convoxio-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--muted);
-  background: rgba(99, 102, 241, 0.08);
-  border: 1px solid var(--panel-border);
+  gap: 8px;
+  font-size: 15px;
+  color: var(--text);
+  background: rgba(99, 102, 241, 0.14);
+  border: 1px solid rgba(99, 102, 241, 0.45);
   border-radius: 999px;
-  padding: 5px 12px;
-  margin-bottom: 20px;
+  padding: 10px 22px;
+  margin-bottom: 28px;
+  box-shadow: 0 0 24px rgba(99, 102, 241, 0.25);
 }
 
-.convoxio-badge a { color: var(--accent-hover); font-weight: 600; }
+.convoxio-badge a {
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+}
 
 .feature-grid {
   display: grid;
@@ -206,6 +211,30 @@ main.page {
 
 .feature-grid .card h3 { margin-top: 0; }
 .feature-grid .card p { color: var(--muted); font-size: 14px; }
+
+.cost-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+  margin-top: 48px;
+}
+
+.cost-card {
+  padding: 32px;
+}
+
+.cost-card .eyebrow {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-hover);
+  margin-bottom: 8px;
+  display: block;
+}
+
+.cost-card h3 { margin-top: 0; font-size: 24px; }
+.cost-card p { color: var(--muted); font-size: 15px; }
 
 [data-tilt] {
   transition: transform 0.15s ease-out;
