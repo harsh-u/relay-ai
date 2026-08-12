@@ -44,12 +44,18 @@ async def start_oauth(
     provider: str,
     request: Request,
     oauth: Annotated[OAuth, Depends(get_oauth_registry)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> object:
     """Redirect to the provider's own consent screen."""
     _require_known_provider(provider)
 
-    redirect_uri = request.url_for("oauth_callback", provider=provider)
-    return await oauth.create_client(provider).authorize_redirect(request, str(redirect_uri))
+    redirect_uri = str(request.url_for("oauth_callback", provider=provider))
+    if settings.app_env == "production" and redirect_uri.startswith("http://"):
+        # Cloudflare terminates TLS at its edge and forwards plain HTTP to the
+        # origin, so request.url_for() sees "http" - force the scheme providers
+        # were actually registered with rather than trusting proxy headers.
+        redirect_uri = "https://" + redirect_uri[len("http://") :]
+    return await oauth.create_client(provider).authorize_redirect(request, redirect_uri)
 
 
 @router.get("/auth/{provider}/callback", name="oauth_callback")
