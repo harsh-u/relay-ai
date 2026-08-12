@@ -165,9 +165,37 @@ main.page {
 
 .muted { color: var(--muted); }
 
-.hero { text-align: center; padding: 64px 0 48px; }
+.hero { position: relative; text-align: center; padding: 64px 0 48px; overflow: hidden; }
 .hero h1 { font-size: 40px; margin-bottom: 12px; }
 .hero p { color: var(--muted); font-size: 18px; max-width: 640px; margin: 0 auto 28px; }
+.hero-inner { position: relative; z-index: 1; }
+
+#hero-scene {
+  position: absolute;
+  inset: -20px -24px auto -24px;
+  height: 560px;
+  z-index: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease-out;
+  mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+}
+
+#hero-scene canvas { display: block; width: 100% !important; height: 100% !important; }
+
+.convoxio-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  padding: 5px 12px;
+  margin-bottom: 20px;
+}
+
+.convoxio-badge a { color: var(--accent-hover); font-weight: 600; }
 
 .feature-grid {
   display: grid;
@@ -179,6 +207,22 @@ main.page {
 .feature-grid .card h3 { margin-top: 0; }
 .feature-grid .card p { color: var(--muted); font-size: 14px; }
 
+[data-tilt] {
+  transition: transform 0.15s ease-out;
+  will-change: transform;
+}
+
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+}
+
+[data-reveal].is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .site-footer {
   border-top: 1px solid var(--panel-border);
   padding: 24px;
@@ -186,3 +230,6 @@ main.page {
   color: var(--muted);
   font-size: 13px;
 }
+
+.site-footer a { color: var(--muted); font-weight: 600; }
+.site-footer a:hover { color: var(--accent-hover); }
